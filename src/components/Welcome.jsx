@@ -5,22 +5,22 @@ export default function Welcome({ onEntrar }) {
 
   const steps = [
     {
-      icon: "/icon-1024.png",
-      title: "Bem-vinda ao DiariaFácil",
-      desc: "O app que conecta quem precisa de diarista com quem quer trabalhar. Sem enrolação, sem grupo de WhatsApp bagunçado.",
+      icon: "/icon.jpeg",
+      title: "Bem-vindo ao Diárias Fácil",
+      desc: "Aqui você encontra diárias perto de você, e também pode contratar diáristas para te auxiliar nas suas tarefas",
       cta: "Como funciona?"
     },
     {
-      icon: "icon-1024.png.jpeg",
+      icon: "/icon.jpeg",
       title: "Precisa de diarista?",
-      desc: "Poste sua vaga em 30 segundos. Escolha data, horário, valor e cidade. Diaristas perto de você vão ver na hora.",
+      desc: "Crie um anuncio ofereçendo vagas pra diáristas se candidatarem a vaga. você escolhe quem deseja depois de analizar o perfil de cada candidato.",
       cta: "E pra quem quer trabalhar?"
     },
     {
-      icon: "✨",
+      icon: "/icon.jpeg",
       title: "Precisa de umas diarias pra salvar o orçamento no fim do mês?",
-      desc: "Veja todas as vagas da sua cidade. Se interessou? clica e fala direto com quem anunciou a vaga.",
-      cta: "Começar agora"
+      desc: "Veja todas as vagas da sua cidade. Se interessou? clica e se candidate, se for escolhido pra vaga logo aparecerá o contato do anunciante.",
+      cta: "Começar agora?"
     }
   ];
 
@@ -30,7 +30,7 @@ export default function Welcome({ onEntrar }) {
     <div className="min-h-screen bg-white flex flex-col items-center justify-between px-6 py-10 max-w-[440px] mx-auto">
       {/* Logo topo */}
       <div className="w-full flex justify-center pt-4">
-        <img src="/icon-1024.png" alt="logo" className="w-12 h-12 rounded-2xl shadow-lg" />
+        <img src="/icon.jpeg" alt="logo" className="w-12 h-12 rounded-2xl shadow-lg" />
       </div>
 
       {/* Conteúdo do step */}
@@ -76,7 +76,7 @@ export default function Welcome({ onEntrar }) {
           </button>
         ) : (
           <p className="text-center text-[11px] text-slate-400">
-            Grátis • Sem mensalidade • Direto com a cliente
+            Grátis • Sem mensalidade • seguro
           </p>
         )}
       </div>

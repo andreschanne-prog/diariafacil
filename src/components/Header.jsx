@@ -5,12 +5,12 @@ export default function Header({ onPostar, usuario, isAdmin, onAdmin }) {
         {/* Logo clean com ícone oficial */}
         <div className="flex items-center gap-2">
           <img 
-            Diariafacil="public/icon.jpeg" 
-            alt="DiariaFacil" 
+            src="/icon.jpeg" 
+            alt="DiariasFacil" 
             className="w-8 h-8 rounded-xl shadow-sm object-cover"
           />
           <div className="leading-none">
-            <p className="text-[13px] font-semibold tracking-tight">DiariaFacil</p>
+            <p className="text-[13px] font-semibold tracking-tight">DiariasFacil</p>
             <p className="text-[10px] text-slate-500 tracking-widest uppercase -mt-0.5">
               {usuario?.feedCidade || "Sempre uma vaga"} - {usuario?.feedEstado || "perto de você"}
             </p>
