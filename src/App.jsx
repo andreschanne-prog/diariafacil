@@ -17,6 +17,7 @@ import Admin from "./pages/Admin"
 import Termos from "./pages/termos"
 import Privacidade from "./pages/privacidade"
 import CriarAnuncio from "./pages/CriarAnuncio"
+import Welcome from "./components/Welcome"
 
 export default function App() {
   const [tela, setTela] = useState("feed")
@@ -35,30 +36,44 @@ export default function App() {
   const [termosAceito, setTermosAceito] = useState(false)
   const [privacidadeAceita, setPrivacidadeAceita] = useState(false)
   const [anuncioEditando, setAnuncioEditando] = useState(null)
+  const [showWelcome, setShowWelcome] = useState(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if(user){
-        const ref = doc(db, "usuarios", user.uid)
-        const snap = await getDoc(ref)
-        if(snap.exists()){
-          const dados = snap.data()
-          setUsuario({ ...dados, email: user.email, foto: dados.foto || user.photoURL || "", uid: user.uid })
-          setPrecisaCompletarCadastro(false)
+      try {
+        if(user){
+          const ref = doc(db, "usuarios", user.uid)
+          const snap = await getDoc(ref)
+          if(snap.exists()){
+            const dados = snap.data()
+            setUsuario({ ...dados, email: user.email, foto: dados.foto || user.photoURL || "", uid: user.uid })
+            setPrecisaCompletarCadastro(false)
+            localStorage.setItem("feed_cidade_diariafacil", dados.cidade || "Sinop")
+          } else {
+            setUsuario({ nome: user.displayName || "", email: user.email, foto: user.photoURL || "", uid: user.uid })
+            setPrecisaCompletarCadastro(true)
+            localStorage.setItem("feed_cidade_diariafacil", "Sinop")
+          }
+          setLogado(true)
+          setMostrarCadastro(false)
+          if(!localStorage.getItem("jaViuWelcome_diariafacil")){
+            setShowWelcome(true)
+          }
         } else {
-          setUsuario({ nome: user.displayName, email: user.email, foto: user.photoURL || "", uid: user.uid })
-          setPrecisaCompletarCadastro(true)
+          setLogado(false)
+          setUsuario(null)
+          setIsAdmin(false)
         }
-        setLogado(true)
-        setMostrarCadastro(false)
-        localStorage.setItem("feed_cidade_diariafacil", snap.exists() ? snap.data().cidade || "Sinop" : "Sinop")
-      } else {
-        setLogado(false)
-        setUsuario(null)
-        setIsAdmin(false)
-        localStorage.removeItem("usuario_diariafacil")
+      } catch (e) {
+        console.log("Erro auth:", e)
+        if(user){
+          setUsuario({ nome: user.displayName || "", email: user.email, foto: user.photoURL || "", uid: user.uid })
+          setPrecisaCompletarCadastro(true)
+          setLogado(true)
+        }
+      } finally {
+        setCarregandoAuth(false)
       }
-      setCarregandoAuth(false)
     })
     return () => unsub()
   }, [])
@@ -94,7 +109,6 @@ export default function App() {
     return () => unsub();
   }, [logado]);
 
-  // BUSCA ANÚNCIOS BRUTOS
   useEffect(() => {
     if (!logado) return;
     const qAnu = query(collection(db, "anuncios"), orderBy("criadoEm", "desc"));
@@ -108,43 +122,27 @@ export default function App() {
   const cidadeFiltro = usuario?.feedCidade || usuario?.cidadeDesejada || localStorage.getItem("feed_cidade_diariafacil") || "Sinop";
   const estadoFiltro = usuario?.feedEstado || usuario?.estadoDesejado || localStorage.getItem("feed_estado_diariafacil") || "MT";
 
-  // FILTRA ANÚNCIOS POR PAÍS / ESTADO / CIDADE + ROTACIONA JUSTO
   useEffect(() => {
-    const filtrar = () => {
-      const cidadeAtual = cidadeFiltro.toLowerCase().trim()
-      const estadoAtual = estadoFiltro.toLowerCase().trim()
-      
-      let filtrados = anunciosBrutos.filter(a => {
-        if (!a.alcance) return true
-        if (a.alcance === "brasil") return true
-        if (a.alcance === "pais") {
-          const p = (a.pais || "Brasil").toLowerCase()
-          if (p.includes("todos")) return true
-          return p === "brasil"
-        }
-        if (a.alcance === "estado") {
-          return (a.estadoLower || (a.estado || "").toLowerCase()) === estadoAtual
-        }
-        if (a.alcance === "cidade") {
-          return (a.cidadeLower || (a.cidade || "").toLowerCase()) === cidadeAtual
-        }
-        return true
-      })
-
-      // ROTACIONA JUSTO - QUEM TEM MENOS VIEWS APARECE PRIMEIRO
-      filtrados = filtrados
-        .sort((a, b) => (a.impressoes || 0) - (b.impressoes || 0))
-        .map(a => ({ a, r: Math.random() }))
-        .sort((x, y) => {
-          const diff = (x.a.impressoes || 0) - (y.a.impressoes || 0)
-          if (Math.abs(diff) > 50) return diff
-          return x.r - y.r
-        })
-        .map(x => x.a)
-
-      setAnuncios(filtrados)
-    }
-    filtrar()
+    const cidadeAtual = cidadeFiltro.toLowerCase().trim()
+    const estadoAtual = estadoFiltro.toLowerCase().trim()
+    let filtrados = anunciosBrutos.filter(a => {
+      if (!a.alcance) return true
+      if (a.alcance === "brasil") return true
+      if (a.alcance === "pais") {
+        const p = (a.pais || "Brasil").toLowerCase()
+        if (p.includes("todos")) return true
+        return p === "brasil"
+      }
+      if (a.alcance === "estado") return (a.estadoLower || (a.estado || "").toLowerCase()) === estadoAtual
+      if (a.alcance === "cidade") return (a.cidadeLower || (a.cidade || "").toLowerCase()) === cidadeAtual
+      return true
+    })
+    filtrados = filtrados.sort((a, b) => (a.impressoes || 0) - (b.impressoes || 0)).map(a => ({ a, r: Math.random() })).sort((x, y) => {
+      const diff = (x.a.impressoes || 0) - (y.a.impressoes || 0)
+      if (Math.abs(diff) > 50) return diff
+      return x.r - y.r
+    }).map(x => x.a)
+    setAnuncios(filtrados)
   }, [anunciosBrutos, cidadeFiltro, estadoFiltro])
 
   const abrirPerfilVisitante = (vagaOuUsuario) => {
@@ -168,6 +166,14 @@ export default function App() {
   const irParaTermos = (tipo) => { setTelaAnterior(tela); setTela(tipo) }
 
   if(carregandoAuth) return <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-[13px] text-slate-500">Carregando...</div>
+
+  if(showWelcome){
+    return <Welcome onEntrar={() => {
+      localStorage.setItem("jaViuWelcome_diariafacil", "true")
+      setShowWelcome(false)
+    }} />
+  }
+
   if (tela === "termos") { return <Termos onVoltar={() => setTela(telaAnterior)} onAceitar={() => { setTermosAceito(true); setTela(telaAnterior); }} /> }
   if (tela === "privacidade") { return <Privacidade onVoltar={() => setTela(telaAnterior)} onAceitar={() => { setPrivacidadeAceita(true); setTela(telaAnterior); }} /> }
   if (!logado) {
@@ -208,14 +214,14 @@ export default function App() {
     <div className="max-w-[640px] mx-auto mt-10 mb-28 px-4">
       <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-semibold">d</div>
+          <img src="/icon.jpeg" className="w-6 h-6 rounded-full object-cover" />
           <p className="text-[12px] font-semibold">diariafacil • Sinop</p>
           <span className="text-[10px] text-slate-400">© 2025</span>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={()=>irParaTermos("termos")} className="text-[11px] px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full hover:bg-slate-100">Termos de Uso</button>
           <button onClick={()=>irParaTermos("privacidade")} className="text-[11px] px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full hover:bg-slate-100">Privacidade - LGPD</button>
-          <button onClick={()=>irParaTermos("suporte")} className="text-[11px] px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full hover:bg-slate-100">Suporte</button>
+          <button onClick={()=>setShowWelcome(true)} className="text-[11px] px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full hover:bg-slate-100">Como funciona?</button>
         </div>
         <p className="text-[10px] text-slate-400 leading-snug">Conectamos diaristas e quem precisa em Sinop-MT. Não somos empregador.</p>
       </div>
@@ -225,25 +231,13 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
       <Header onPostar={()=>setTela("criar")} usuario={usuario} isAdmin={isAdmin} onAdmin={()=>setTela("admin")} />
-      
       {tela === "feed" && <><Feed vagas={feedVagas} anuncios={anuncios} cidadeFiltro={cidadeFiltro} estadoFiltro={estadoFiltro} onVerPerfil={abrirPerfilVisitante} /><Footer /></>}
       {tela === "criar" && <CriarVaga onVoltar={()=>setTela("feed")} onSucesso={()=>setTela("feed")} usuario={usuario} />}
       {tela === "minhas" && <><MinhasVagas vagas={minhasVagasFiltradas} usuario={usuario} onVerPerfil={abrirPerfilVisitante} /><Footer /></>}
       {tela === "aceitas" && <><VagasAceitas vagas={vagas} usuario={usuario} /><Footer /></>}
       {tela === "visitante" && <PerfilVisitante usuarioId={visitanteId} usuarioData={visitanteData} onVoltar={()=>setTela("feed")} />}
-      
-      {tela === "admin" && (
-        <Admin 
-          onVoltar={()=>setTela("feed")} 
-          onAbrirCriarAnuncio={() => { setAnuncioEditando(null); setTela("criarAnuncio") }}
-          onEditarAnuncio={(anuncio) => { setAnuncioEditando(anuncio); setTela("criarAnuncio") }}
-        />
-      )}
-
-      {tela === "criarAnuncio" && (
-        <CriarAnuncio anuncioParaEditar={anuncioEditando} onVoltar={()=>setTela("admin")} />
-      )}
-
+      {tela === "admin" && <Admin onVoltar={()=>setTela("feed")} onAbrirCriarAnuncio={() => { setAnuncioEditando(null); setTela("criarAnuncio") }} onEditarAnuncio={(anuncio) => { setAnuncioEditando(anuncio); setTela("criarAnuncio") }} />}
+      {tela === "criarAnuncio" && <CriarAnuncio anuncioParaEditar={anuncioEditando} onVoltar={()=>setTela("admin")} />}
       {tela === "perfil" && <><Perfil vagas={vagas} modo="perfil" usuario={usuario} onSair={()=>{ auth.signOut(); setLogado(false) }} onEditar={()=>setTela("editar")} onDeletar={()=>setTela("deletar")} onSuporte={()=>setTela("suporte")} onAnuncio={()=>setTela("anuncio")} /><Footer /></>}
       {tela === "editar" && <EditarPerfil usuario={usuario} onVoltar={()=>setTela("perfil")} onSalvar={(d)=>{ setUsuario({...usuario, ...d}); setTela("perfil") }} />}
       {tela === "suporte" && (

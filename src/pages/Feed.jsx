@@ -1,8 +1,66 @@
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase.js";
 import CardVaga from "../components/CardVaga";
 import CardAnuncio from "../components/CardAnuncio";
+
+// ===== COMPONENTE DO BANNER DO TOPO (GOOGLE + SEU) =====
+function BannerTopo() {
+  const [banners, setBanners] = useState([])
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    const q = query(
+      collection(db, "banners_topo"),
+      where("ativo", "==", true),
+      orderBy("criadoEm", "desc")
+    )
+    const unsub = onSnapshot(q, snap => {
+      const agora = new Date()
+      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(b => {
+        if (!b.expiraEm) return true
+        try {
+          const exp = b.expiraEm.toDate ? b.expiraEm.toDate() : new Date(b.expiraEm)
+          return exp > agora
+        } catch { return true }
+      })
+      setBanners(lista)
+    })
+    return () => unsub()
+  }, [])
+
+  useEffect(() => {
+    if (banners.length <= 1) return
+    const t = setInterval(() => setIndex(i => (i + 1) % banners.length), 5000)
+    return () => clearInterval(t)
+  }, [banners.length])
+
+  if (banners.length === 0) return null
+
+  const banner = banners[index]
+
+  if (banner.tipo === "adsense") {
+    return (
+      <div className="w-full bg-white border-b border-slate-200 flex justify-center -mx-4 mb-4">
+        <div className="w-full max-w-[640px]">
+          <p className="text-[8px] tracking-widest text-slate-400 text-center py-1">PUBLICIDADE</p>
+          <div className="min-h-[90px] bg-slate-50 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: banner.codigoAdsense || "" }} />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full bg-black -mx-4 mb-4">
+      <div className="max-w-[640px] mx-auto relative">
+        <a href={banner.link || "#"} target="_blank" rel="noopener noreferrer" className="block">
+          <img src={banner.imagem} alt={banner.titulo} className="w-full h-auto max-h-[120px] object-contain mx-auto" />
+        </a>
+        <span className="absolute top-1 left-2 text-[8px] bg-black/60 text-white px-1.5 py-0.5 rounded">ANÚNCIO</span>
+      </div>
+    </div>
+  )
+}
 
 export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], onCandidatar, onVerPerfil, cidadeFiltro = "Sinop", estadoFiltro = "MT", paisFiltro = "Brasil" }) {
   const [vagasLocal, setVagasLocal] = useState([]);
@@ -40,19 +98,23 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
   const listaBruta = vagasProp || vagasLocal;
   const abertas = listaBruta.filter(v => !v.fechada && v.status !== "preenchida");
 
-  // FILTRO DE ANÚNCIOS POR LOCALIZAÇÃO
   const filtrarAnunciosPorLocal = (lista) => {
     const cidadeAtual = (cidadeFiltro || "").toLowerCase().trim();
     const estadoAtual = (estadoFiltro || "").toLowerCase().trim();
     const paisAtual = (paisFiltro || "Brasil").toLowerCase().trim();
+    const agora = new Date();
 
     return lista.filter(a => {
-      // Anúncio sem alcance = compatibilidade com antigos, mostra só em Sinop
+      if (a.expiraEm) {
+        try {
+          const dataExpira = a.expiraEm.toDate ? a.expiraEm.toDate() : new Date(a.expiraEm);
+          if (dataExpira < agora) return false;
+        } catch (e) {}
+      }
       if (!a.alcance) {
         return cidadeAtual.includes("sinop") || a.cidadeLower === "sinop" || a.cidade === "Sinop";
       }
-
-      if (a.alcance === "brasil") return true; // Brasil todo
+      if (a.alcance === "brasil") return true;
       if (a.alcance === "pais") {
         const p = (a.pais || "Brasil").toLowerCase();
         if (p === "todos" || p === "todos os países" || p.includes("todos")) return true;
@@ -78,7 +140,6 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
     return texto.includes(termo);
   });
 
-  // A CADA 6 VAGAS, 1 ANÚNCIO
   const feedMisto = [];
   let anuncioIndex = 0;
   listaFiltrada.forEach((vaga, i) => {
@@ -106,8 +167,11 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
   }
 
   return (
-    <div className="max-w-[640px] mx-auto px-4 pt-6 pb-28">
-      <div className="mb-4">
+    <div className="max-w-[640px] mx-auto px-4 pt-0 pb-28">
+      {/* BANNER DO TOPO AQUI */}
+      <BannerTopo />
+
+      <div className="mb-4 mt-2">
         <div className="relative">
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
           <input

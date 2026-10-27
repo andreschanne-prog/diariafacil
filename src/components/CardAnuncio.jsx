@@ -98,7 +98,7 @@ export default function CardAnuncio({ anuncio }) {
           onClick={abrirLink}
           className="mt-3 w-full h-11 bg-slate-900 hover:bg-black text-white rounded-xl text-[13px] font-medium transition-colors"
         >
-          Ver anúncio
+          ENTRAR
         </button>
       </div>
     </div>
