@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { auth, db } from "./firebase.js"
 import { onAuthStateChanged } from "firebase/auth"
-import { doc, getDoc, collection, onSnapshot, orderBy, query, where, getDocs } from "firebase/firestore"
+import { doc, getDoc, collection, onSnapshot, orderBy, query, where, getDocs, updateDoc, deleteDoc } from "firebase/firestore"
 
 import Header from "./components/Header"
 import Feed from "./pages/Feed"
@@ -36,7 +36,11 @@ export default function App() {
   const [termosAceito, setTermosAceito] = useState(false)
   const [privacidadeAceita, setPrivacidadeAceita] = useState(false)
   const [anuncioEditando, setAnuncioEditando] = useState(null)
-  const [showWelcome, setShowWelcome] = useState(false)
+  
+  // Controla se exibe o welcome. Se o usuário nunca viu, começa como true.
+  const [showWelcome, setShowWelcome] = useState(() => {
+    return !localStorage.getItem("jaViuWelcome_diariafacil");
+  })
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -48,17 +52,16 @@ export default function App() {
             const dados = snap.data()
             setUsuario({ ...dados, email: user.email, foto: dados.foto || user.photoURL || "", uid: user.uid })
             setPrecisaCompletarCadastro(false)
-            localStorage.setItem("feed_cidade_diariafacil", dados.cidade || "Sinop")
+            localStorage.setItem("feed_cidade_diariafacil", dados.feedCidade || dados.cidade || "Sinop")
+            localStorage.setItem("feed_estado_diariafacil", dados.feedEstado || dados.estado || "MT")
           } else {
             setUsuario({ nome: user.displayName || "", email: user.email, foto: user.photoURL || "", uid: user.uid })
             setPrecisaCompletarCadastro(true)
             localStorage.setItem("feed_cidade_diariafacil", "Sinop")
+            localStorage.setItem("feed_estado_diariafacil", "MT")
           }
           setLogado(true)
           setMostrarCadastro(false)
-          if(!localStorage.getItem("jaViuWelcome_diariafacil")){
-            setShowWelcome(true)
-          }
         } else {
           setLogado(false)
           setUsuario(null)
@@ -113,7 +116,8 @@ export default function App() {
     if (!logado) return;
     const qAnu = query(collection(db, "anuncios"), orderBy("criadoEm", "desc"));
     const unsub = onSnapshot(qAnu, (snap) => {
-      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(a => a.ativo !== false)
+      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      // Mantém brutos todos para o painel gerenciar, mas filtra para o feed os ativos
       setAnunciosBrutos(lista)
     })
     return () => unsub()
@@ -125,7 +129,10 @@ export default function App() {
   useEffect(() => {
     const cidadeAtual = cidadeFiltro.toLowerCase().trim()
     const estadoAtual = estadoFiltro.toLowerCase().trim()
+    
+    // Filtra apenas anúncios ativos para o feed geral
     let filtrados = anunciosBrutos.filter(a => {
+      if (a.ativo === false) return false
       if (!a.alcance) return true
       if (a.alcance === "brasil") return true
       if (a.alcance === "pais") {
@@ -137,27 +144,30 @@ export default function App() {
       if (a.alcance === "cidade") return (a.cidadeLower || (a.cidade || "").toLowerCase()) === cidadeAtual
       return true
     })
+
     filtrados = filtrados.sort((a, b) => (a.impressoes || 0) - (b.impressoes || 0)).map(a => ({ a, r: Math.random() })).sort((x, y) => {
       const diff = (x.a.impressoes || 0) - (y.a.impressoes || 0)
       if (Math.abs(diff) > 50) return diff
       return x.r - y.r
     }).map(x => x.a)
+    
     setAnuncios(filtrados)
   }, [anunciosBrutos, cidadeFiltro, estadoFiltro])
 
   const abrirPerfilVisitante = (vagaOuUsuario) => {
     if(!vagaOuUsuario) return
+    setTelaAnterior(tela)
     if(typeof vagaOuUsuario === 'string'){
       setVisitanteId(vagaOuUsuario)
       setVisitanteData(null)
     } else {
-      setVisitanteId(vagaOuUsuario.anuncianteId || vagaOuUsuario.uid)
+      setVisitanteId(vagaOuUsuario.uid || vagaOuUsuario.anuncianteId)
       setVisitanteData({
-        uid: vagaOuUsuario.anuncianteId,
-        nome: vagaOuUsuario.anuncianteNome || vagaOuUsuario.nome,
-        foto: vagaOuUsuario.anuncianteFoto || vagaOuUsuario.foto,
+        uid: vagaOuUsuario.uid || vagaOuUsuario.anuncianteId,
+        nome: vagaOuUsuario.nome || vagaOuUsuario.anuncianteNome,
+        foto: vagaOuUsuario.foto || vagaOuUsuario.anuncianteFoto,
         cidade: vagaOuUsuario.cidade,
-        sobre: vagaOuUsuario.anuncianteSobre
+        sobre: vagaOuUsuario.sobre || vagaOuUsuario.anuncianteSobre
       })
     }
     setTela("visitante")
@@ -176,17 +186,19 @@ export default function App() {
 
   if (tela === "termos") { return <Termos onVoltar={() => setTela(telaAnterior)} onAceitar={() => { setTermosAceito(true); setTela(telaAnterior); }} /> }
   if (tela === "privacidade") { return <Privacidade onVoltar={() => setTela(telaAnterior)} onAceitar={() => { setPrivacidadeAceita(true); setTela(telaAnterior); }} /> }
+  
   if (!logado) {
     if(mostrarCadastro){ return <Cadastro onEntrar={(dados)=>{ setUsuario({...usuario, ...dados}); setMostrarCadastro(false); }} onVoltar={()=>setMostrarCadastro(false)} usuarioInicial={null} onVerTermos={()=>irParaTermos("termos")} onVerPrivacidade={()=>irParaTermos("privacidade")} termosJaAceito={termosAceito} privacidadeJaAceita={privacidadeAceita} /> }
     return <Login onLogin={()=>{}} onCadastro={()=>setMostrarCadastro(true)} />
   }
+  
   if(precisaCompletarCadastro){ return <Cadastro onEntrar={(dados)=>{ setUsuario({...usuario, ...dados}); setPrecisaCompletarCadastro(false); setTela("feed") }} usuarioInicial={usuario} onVerTermos={()=>irParaTermos("termos")} onVerPrivacidade={()=>irParaTermos("privacidade")} termosJaAceito={termosAceito} privacidadeJaAceita={privacidadeAceita} /> }
 
   const feedVagas = vagas.filter(v => {
     if(v.fechada || v.status === "preenchida") return false;
     if(cidadeFiltro && v.cidade){
-      const cVaga = v.cidade.toLowerCase();
-      const cFiltro = cidadeFiltro.toLowerCase();
+      const cVaga = v.cidade.toLowerCase().trim();
+      const cFiltro = cidadeFiltro.toLowerCase().trim();
       if(!cVaga.includes(cFiltro) && !cFiltro.includes(cVaga)) return false;
     }
     return true;
@@ -215,7 +227,7 @@ export default function App() {
       <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <img src="/icon.jpeg" className="w-6 h-6 rounded-full object-cover" />
-          <p className="text-[12px] font-semibold">diariafacil • Sinop</p>
+          <p className="text-[12px] font-semibold">diariafacil • Brasil</p>
           <span className="text-[10px] text-slate-400">© 2025</span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -235,23 +247,50 @@ export default function App() {
       {tela === "criar" && <CriarVaga onVoltar={()=>setTela("feed")} onSucesso={()=>setTela("feed")} usuario={usuario} />}
       {tela === "minhas" && <><MinhasVagas vagas={minhasVagasFiltradas} usuario={usuario} onVerPerfil={abrirPerfilVisitante} /><Footer /></>}
       {tela === "aceitas" && <><VagasAceitas vagas={vagas} usuario={usuario} /><Footer /></>}
-      {tela === "visitante" && <PerfilVisitante usuarioId={visitanteId} usuarioData={visitanteData} onVoltar={()=>setTela("feed")} />}
+      {tela === "visitante" && (
+        <PerfilVisitante 
+          usuarioId={visitanteId} 
+          usuarioData={visitanteData} 
+          usuarioLogado={usuario} 
+          onVoltar={()=>setTela(telaAnterior)} 
+        />
+      )}
       {tela === "admin" && <Admin onVoltar={()=>setTela("feed")} onAbrirCriarAnuncio={() => { setAnuncioEditando(null); setTela("criarAnuncio") }} onEditarAnuncio={(anuncio) => { setAnuncioEditando(anuncio); setTela("criarAnuncio") }} />}
       {tela === "criarAnuncio" && <CriarAnuncio anuncioParaEditar={anuncioEditando} onVoltar={()=>setTela("admin")} />}
-      {tela === "perfil" && <><Perfil vagas={vagas} modo="perfil" usuario={usuario} onSair={()=>{ auth.signOut(); setLogado(false) }} onEditar={()=>setTela("editar")} onDeletar={()=>setTela("deletar")} onSuporte={()=>setTela("suporte")} onAnuncio={()=>setTela("anuncio")} /><Footer /></>}
+      
+      {/* TELA DE PERFIL */}
+      {tela === "perfil" && (
+        <>
+          <Perfil 
+            vagas={vagas} 
+            modo="perfil" 
+            usuario={usuario} 
+            onSair={()=>{ auth.signOut(); setLogado(false) }} 
+            onEditar={()=>setTela("editar")} 
+            onDeletar={()=>setTela("deletar")} 
+            onSuporte={()=>setTela("suporte")} 
+            onAnuncio={()=>setTela("anuncio")}
+            onSalvarCidade={(novosDados) => {
+              setUsuario(prev => ({ ...prev, ...novosDados }))
+            }}
+          />
+          <Footer />
+        </>
+      )}
+
       {tela === "editar" && <EditarPerfil usuario={usuario} onVoltar={()=>setTela("perfil")} onSalvar={(d)=>{ setUsuario({...usuario, ...d}); setTela("perfil") }} />}
       {tela === "suporte" && (
         <div className="max-w-[600px] mx-auto min-h-screen bg-white p-6">
           <button onClick={()=>setTela(telaAnterior)} className="w-9 h-9 border border-slate-200 rounded-full text-[13px]">←</button>
           <h2 className="text-[18px] font-semibold mt-6">Suporte</h2>
-          <p className="text-[13px] text-slate-500 mt-1">Fale com a gente no WhatsApp</p>
-          <button onClick={()=>window.open("https://wa.me/5566999999999","_blank")} className="mt-6 w-full bg-slate-900 text-white h-11 rounded-full text-[14px] font-medium">Abrir WhatsApp</button>
+          <p className="text-[13px] text-slate-500 mt-1">Fale com a gente no suporte</p>
+          <button onClick={()=>window.open("https://wa.me/5566992576552","_blank")} className="mt-6 w-full bg-slate-900 text-white h-11 rounded-full text-[14px] font-medium">Abrir WhatsApp</button>
         </div>
       )}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-2 py-3 flex justify-center z-50">
         <div className="flex items-center gap-1 bg-slate-100 rounded-full p-1">
-          {navItem("feed","Vagas")}
-          {navItem("minhas","Meus posts")}
+          {navItem("feed","FEED")}
+          {navItem("minhas","Anuncios")}
           {navItem("aceitas","Aceitas",aceitasCount)}
           {navItem("perfil","Perfil")}
         </div>

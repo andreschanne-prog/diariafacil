@@ -3,7 +3,7 @@ import { db } from "../firebase.js";
 import { useState } from "react";
 import { auth } from "../firebase.js";
 
-export default function MinhasVagas({ vagas = [], usuario }) {
+export default function MinhasVagas({ vagas = [], usuario, onVerPerfil }) {
   const [aprovando, setAprovando] = useState(null);
   const uidAtual = auth.currentUser?.uid || usuario?.uid;
 
@@ -59,14 +59,17 @@ export default function MinhasVagas({ vagas = [], usuario }) {
   return (
     <div className="max-w-[640px] mx-auto min-h-screen bg-[#F8FAFC] p-4 pb-28">
       <h2 className="text-[15px] font-semibold tracking-tight">Minhas vagas</h2>
-      <p className="text-[11px] text-slate-500 mt-1">Logado como {usuario?.email} • UID: {uidAtual?.slice(0,6)} • {abertas.length} aberta(s)</p>
+      <p className="text-[11px] text-slate-500 mt-1">
+        Logado como {usuario?.email} • {abertas.length} aberta(s)
+      </p>
 
       <div className="mt-6 space-y-3">
         {minhasVagas.length === 0 && (
           <div className="bg-white border border-dashed border-slate-300 p-8 rounded-2xl text-center">
             <p className="font-medium text-[13px]">Nenhuma vaga sua</p>
-            <p className="text-[11px] text-slate-500 mt-1">Você está vendo {vagas.length} vagas no total, mas 0 são suas (filtro por UID)</p>
-            <p className="text-[10px] text-red-400 mt-2">Se deveria ter vaga aqui, a vaga foi criada com outro UID. Precisa arrumar no CriarVaga.</p>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Você está vendo {vagas.length} vagas no total, mas 0 são suas.
+            </p>
           </div>
         )}
 
@@ -75,26 +78,68 @@ export default function MinhasVagas({ vagas = [], usuario }) {
             <div className="flex justify-between items-start gap-2">
               <div>
                 <p className="font-medium text-[14px] leading-tight">{v.titulo}</p>
-                <p className="text-[11px] text-slate-500 mt-1">{v.cidade} • {v.valor} • {v.qtd || 1} • {v.candidatos?.filter(c=>c.aprovado).length || 0}/{v.qtd || 1}</p>
-                <p className="text-[9px] text-slate-400 mt-1">Dono: {v.anuncianteId?.slice(0,6)} - Você: {uidAtual?.slice(0,6)}</p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {v.cidade} • R$ {v.valor} • {v.candidatos?.filter(c=>c.aprovado).length || 0}/{v.qtd || 1}
+                </p>
               </div>
-              <span className="text-[10px] font-medium px-2 py-1 rounded-full bg-slate-50 border border-slate-200">{v.candidatos?.length || 0} cand.</span>
+              <span className="text-[10px] font-medium px-2 py-1 rounded-full bg-slate-50 border border-slate-200">
+                {v.candidatos?.length || 0} cand.
+              </span>
             </div>
+
             <div className="mt-4 space-y-2">
-              {(v.candidatos || []).map((c,i)=>(
+              {(v.candidatos || []).map((c, i) => (
                 <div key={i} className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[11px] font-semibold">{c.nome?.[0]?.toUpperCase()}</div>
-                    <span className="font-medium text-[12px]">{c.nome} {c.aprovado && "✓"}</span>
+                  
+                  {/* ÁREA CLICÁVEL DO CANDIDATO */}
+                  <div 
+                    onClick={() => onVerPerfil && onVerPerfil(c)} 
+                    className="flex items-center gap-2 cursor-pointer group flex-1"
+                    title="Clique para ver o perfil"
+                  >
+                    {c.foto ? (
+                      <img src={c.foto} alt={c.nome} className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-[11px] font-semibold text-slate-700">
+                        {c.nome?.[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    
+                    <div className="flex flex-col">
+                      <span className="font-medium text-[12px] group-hover:text-blue-600 transition">
+                        {c.nome} {c.aprovado && "✓"}
+                      </span>
+                      <span className="text-[9px] text-slate-400 group-hover:underline">
+                        Ver perfil →
+                      </span>
+                    </div>
                   </div>
-                  {!c.aprovado ? (
-                    <button onClick={()=>aprovarCandidato(v, i)} disabled={aprovando === `${v.id}-${i}`} className="h-7 bg-slate-900 text-white px-3 rounded-full text-[11px] font-medium disabled:opacity-50">{aprovando === `${v.id}-${i}` ? "..." : "Aprovar"}</button>
-                  ) : (
-                    <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full">Liberado</span>
-                  )}
+
+                  {/* AÇÕES (APROVAR OU STATUS) */}
+                  <div>
+                    {!c.aprovado ? (
+                      <button 
+                        onClick={() => aprovarCandidato(v, i)} 
+                        disabled={aprovando === `${v.id}-${i}`} 
+                        className="h-7 bg-slate-900 text-white px-3 rounded-full text-[11px] font-medium disabled:opacity-50 hover:bg-black transition"
+                      >
+                        {aprovando === `${v.id}-${i}` ? "..." : "Aprovar"}
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                        Liberado
+                      </span>
+                    )}
+                  </div>
+
                 </div>
               ))}
-              {(!v.candidatos || v.candidatos.length===0) && <p className="text-[11px] text-slate-400 bg-slate-50 p-3 rounded-xl text-center border border-dashed">Ninguém ainda 🔒</p>}
+              
+              {(!v.candidatos || v.candidatos.length === 0) && (
+                <p className="text-[11px] text-slate-400 bg-slate-50 p-3 rounded-xl text-center border border-dashed">
+                  Ninguém ainda 🔒
+                </p>
+              )}
             </div>
           </div>
         ))}
@@ -102,10 +147,12 @@ export default function MinhasVagas({ vagas = [], usuario }) {
         {fechadas.length > 0 && (
           <>
             <p className="text-[11px] font-medium tracking-widest uppercase text-slate-400 pt-4">Preenchidas</p>
-            {fechadas.map(v=>(
-              <div key={v.id} className="bg-white border border-slate-200 p-4 rounded-2xl opacity-60">
-                <p className="font-medium text-[13px]">{v.titulo} • fechada ✓</p>
-                <button onClick={()=>reabrirVaga(v)} className="mt-3 h-7 bg-white border border-slate-200 px-3 rounded-full text-[11px]">Reabrir</button>
+            {fechadas.map(v => (
+              <div key={v.id} className="bg-white border border-slate-200 p-4 rounded-2xl opacity-75">
+                <p className="font-medium text-[13px]">{v.titulo} <span className="text-emerald-600">✓ Fechada</span></p>
+                <button onClick={() => reabrirVaga(v)} className="mt-3 h-7 bg-white border border-slate-200 px-3 rounded-full text-[11px] hover:bg-slate-50">
+                  Reabrir
+                </button>
               </div>
             ))}
           </>

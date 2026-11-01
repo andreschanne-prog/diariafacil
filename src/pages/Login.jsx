@@ -1,5 +1,6 @@
-import { auth } from "../firebase.js"
+import { auth, db } from "../firebase.js"
 import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from "firebase/auth"
+import { doc, getDoc, setDoc } from "firebase/firestore"
 import { useState } from "react"
 
 export default function Login({ onLogin, onCadastro }) {
@@ -31,7 +32,25 @@ export default function Login({ onLogin, onCadastro }) {
       const provider = new GoogleAuthProvider()
       provider.setCustomParameters({ prompt: "select_account" })
       const result = await signInWithPopup(auth, provider)
-      if(onLogin) onLogin(result.user)
+      const user = result.user
+
+      // GARANTIA: Verifica se o usuário já tem documento no Firestore.
+      // Se não tiver, cria um perfil padrão para evitar o loop de cadastro incompleto.
+      const userRef = doc(db, "usuarios", user.uid)
+      const snap = await getDoc(userRef)
+
+      if (!snap.exists()) {
+        await setDoc(userRef, {
+          nome: user.displayName || "Usuário",
+          email: user.email || "",
+          foto: user.photoURL || "",
+          cidade: localStorage.getItem("feed_cidade_diariafacil") || "Sinop",
+          estado: "MT",
+          criadoEm: new Date()
+        })
+      }
+
+      if(onLogin) onLogin(user)
     } catch (e) {
       console.log("ERRO GOOGLE:", e.code, e.message)
       if(e.code === "auth/popup-closed-by-user") setErro("Você fechou o popup")
@@ -49,7 +68,7 @@ export default function Login({ onLogin, onCadastro }) {
         <div className="bg-white border border-slate-200 rounded-[20px] p-6">
           <div className="text-center mb-6">
             <img src="/icon.jpeg" alt="DiariaFacil" className="w-12 h-12 rounded-2xl shadow-md mx-auto object-cover" />
-            <h1 className="text-[15px] font-semibold mt-3">diariafacil</h1>
+            <h1 className="text-[15px] font-semibold mt-3">diariasfacil</h1>
             <p className="text-[11px] text-slate-500 mt-1">Sempre uma diária perto de você.</p>
           </div>
           <form onSubmit={loginEmail} className="space-y-3">

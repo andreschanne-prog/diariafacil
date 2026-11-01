@@ -4,13 +4,79 @@ import { useState, useEffect } from "react";
 
 const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
+// Mapeamento completo com as principais cidades e municípios por estado
+const CIDADES_POR_ESTADO = {
+  MT: [
+    "Sinop", "Cuiabá", "Várzea Grande", "Rondonópolis", "Sorriso", "Lucas do Rio Verde", 
+    "Tangará da Serra", "Primavera do Leste", "Cáceres", "Barra do Garças", "Nova Mutum", 
+    "Alta Floresta", "Pontes e Lacerda", "Campo Novo do Parecis", "Campo Verde", "Juína", 
+    "Confresa", "Juara", "Peixoto de Azevedo", "Sapezal", "Água Boa", "Colíder", 
+    "Guarantã do Norte", "Poconé", "Querência", "Jaciara", "Barra do Bugres", "Paranatinga", 
+    "Canarana", "Mirassol d'Oeste", "Aripuanã", "Colniza", "Nova Xavantina", "Poxoréu", 
+    "Diamantino", "Matupá", "Vila Rica", "Chapada dos Guimarães", "Pedra Preta", "Comodoro", 
+    "Alto Araguaia", "São José dos Quatro Marcos", "Brasnorte", "Vila Bela da Santíssima Trindade", 
+    "Santo Antônio do Leverger", "Nova Olímpia", "Campinápolis", "Nobres", "Tapurah", 
+    "Rosário Oeste", "Araputanga", "São Félix do Araguaia", "São José do Rio Claro", 
+    "Nova Bandeirantes", "Alto Garças", "Porto Alegre do Norte", "Itiquira", "Paranaíta", 
+    "Alto Taquari", "Nova Canaã do Norte", "Nossa Senhora do Livramento", "Juscimeira", 
+    "Marcelândia", "Arenápolis", "Vera", "Terra Nova do Norte", "Ribeirão Cascalheira", 
+    "Feliz Natal", "Carlinda", "Guiratinga", "Porto Esperidião", "Juruena", "Cotriguaçu", 
+    "Nova Ubiratã", "Campos de Júlio", "Tabaporã", "Gaúcha do Norte", "Cláudia", "Apiacás", 
+    "Ipiranga do Norte", "Nova Monte Verde", "Itanhangá", "Bom Jesus do Araguaia", "Dom Aquino", 
+    "Jauru", "Santa Terezinha", "Alto Paraguai", "Pontal do Araguaia", "Jangada", "Castanheira", 
+    "Novo São Joaquim", "Barão de Melgaço", "Nova Lacerda", "Denise", "Cocalinho", "Novo Mundo", 
+    "General Carneiro", "São José do Xingu", "Alto Boa Vista", "Nortelândia", "Santa Carmem", 
+    "Boa Esperança do Norte", "Nova Maringá", "Porto dos Gaúchos", "Itaúba", "Curvelândia", 
+    "Acorizal", "Lambari d'Oeste", "Nova Nazaré", "Nova Guarita", "Nova Santa Helena", 
+    "Canabrava do Norte", "Rio Branco", "São Pedro da Cipa", "Santo Antônio do Leste", 
+    "Torixoréu", "Araguaiana", "Conquista d'Oeste", "União do Sul", "Nova Brasilândia", 
+    "Nova Marilândia", "Salto do Céu", "Santa Rita do Trivelato", "Rondolândia", 
+    "Planalto da Serra", "Novo Horizonte do Norte", "Porto Estrela", "Figueirópolis d'Oeste", 
+    "Tesouro", "Santa Cruz do Xingu", "Vale de São Domingos", "Glória d'Oeste", "Ribeirãozinho", 
+    "São José do Povo", "Luciara", "Santo Afonso", "Indiavaí", "Ponte Branca", "Novo Santo Antônio", 
+    "Reserva do Cabaçal", "Serra Nova Dourada", "Araguainha"
+  ],
+  SP: [
+    "São Paulo", "Campinas", "Guarulhos", "São Bernardo do Campo", "Santo André", "Osasco", 
+    "São José dos Campos", "Ribeirão Preto", "Sorocaba", "Santos", "Mauá", "São José do Rio Preto", 
+    "Mogi das Cruzes", "Jundiaí", "Piracicaba", "Bauru", "Franca", "Carapicuíba", "Itaquaquecetuba", 
+    "Guarujá", "Taubaté", "Limeira", "Suzano", "Taboão da Serra", "Sumaré", "Barueri", "Embu das Artes", 
+    "São Vicente", "Marília", "Americana", "Jacareí", "Presidente Prudente", "Rio Claro", "Araçatuba", 
+    "Santa Bárbara d'Oeste", "Araraquara", "Itapevi", "Indaiatuba", "Cotia", "Pindamonhangaba", "Atibaia"
+  ],
+  MS: ["Campo Grande", "Dourados", "Três Lagoas", "Corumbá", "Ponta Porã", "Naviraí", "Aquidauana", "Sidrolândia", "Paranaíba", "Coxim"],
+  GO: ["Goiânia", "Aparecida de Goiânia", "Anápolis", "Rio Verde", "Luziânia", "Itumbiara", "Águas Lindas de Goiás", "Valparaíso de Goiás", "Trindade", "Formosa", "Novo Gama", "Senador Canedo"],
+  RJ: ["Rio de Janeiro", "São Gonçalo", "Duque de Caxias", "Nova Iguaçu", "Niterói", "Belford Roxo", "São João de Meriti", "Campos dos Goytacazes", "Petrópolis", "Volta Redonda", "Macaé", "Magé", "Itaboraí", "Cabo Frio", "Angra dos Reis", "Maricá", "Nova Friburgo", "Barra Mansa", "Teresópolis"],
+  PR: ["Curitiba", "Londrina", "Maringá", "Ponta Grossa", "Cascavel", "São José dos Pinhais", "Foz do Iguaçu", "Colombo", "Guarapuava", "Paranaguá", "Araucária", "Toledo", "Apucarana", "Campo Largo", "Arapongas", "Umuarama", "Pato Branco", "Paranavaí"],
+  SC: ["Florianópolis", "Joinville", "Blumenau", "São José", "Criciúma", "Chapecó", "Itajaí", "Jaraguá do Sul", "Lages", "Palhoça", "Balneário Camboriú", "Brusque", "Tubarão", "São Bento do Sul", "Caçador", "Concórdia"],
+  RS: ["Porto Alegre", "Caxias do Sul", "Pelotas", "Canoas", "Santa Maria", "Gravataí", "Viamão", "Novo Hamburgo", "São Leopoldo", "Rio Grande", "Alvorada", "Passo Fundo", "Sapucaia do Sul", "Uruguaiana", "Santa Cruz do Sul", "Cachoeirinha", "Bento Gonçalves", "Bagé", "Erechim"],
+  MG: ["Belo Horizonte", "Uberlândia", "Contagem", "Juiz de Fora", "Betim", "Montes Claros", "Ribeirão das Neves", "Uberaba", "Governador Valadares", "Ipatinga", "Sete Lagoas", "Divinópolis", "Santa Luzia", "Ibirité", "Poços de Caldas", "Patos de Minas", "Varginha", "Pouso Alegre", "Teófilo Otoni", "Barbacena", "Sabará", "Vespasiano", "Conselheiro Lafaiete", "Itabira", "Itajubá"],
+  DF: ["Brasília", "Ceilândia", "Taguatinga", "Samambaia", "Gama", "Planaltina", "Águas Claras", "Recanto das Emas", "Guará", "Sobradinho"],
+  BA: ["Salvador", "Feira de Santana", "Vitória da Conquista", "Camaçari", "Itabuna", "Lauro de Freitas", "Ilhéus", "Jequié", "Teixeira de Freitas", "Alagoinhas", "Barreiras", "Porto Seguro", "Guanambi", "Santo Antônio de Jesus", "Valença", "Itapetinga"],
+  CE: ["Fortaleza", "Caucaia", "Juazeiro do Norte", "Maracanaú", "Sobral", "Crato", "Itapipoca", "Maranguape", "Iguatu", "Quixadá", "Aquiraz", "Pacatuba", "Crateús"],
+  PE: ["Recife", "Jaboatão dos Guararapes", "Olinda", "Caruaru", "Petrolina", "Paulista", "Cabo de Santo Agostinho", "Camaragibe", "Garanhuns", "Vitória de Santo Antão", "Igarassu", "São Lourenço da Mata", "Santa Cruz do Capibaribe", "Serra Talhada", "Araripina"],
+  PA: ["Belém", "Ananindeua", "Santarém", "Marabá", "Parauapebas", "Castanhal", "Abaetetuba", "Cametá", "Marituba", "Bragança", "São Félix do Xingu", "Barcarena", "Altamira", "Tucuruí"],
+  AM: ["Manaus", "Parintins", "Itacoatiara", "Manacapuru", "Coari", "Tabatinga", "Maués", "Tefé", "Iranduba", "Humaitá"],
+  MA: ["São Luís", "Imperatriz", "São José de Ribamar", "Timon", "Caxias", "Codó", "Paço do Lumiar", "Açailândia", "Bacabal", "Balsas", "Santa Inês"],
+  PB: ["João Pessoa", "Campina Grande", "Santa Rita", "Patos", "Bayeux", "Sousa", "Cajazeiras", "Cabedelo", "Guarabira", "Mamanguape"],
+  RN: ["Natal", "Mossoró", "Parnamirim", "São Gonçalo do Amarante", "Macaíba", "Ceará-Mirim", "Caicó", "Açu", "Currais Novos", "São José de Mipibu"],
+  AL: ["Maceió", "Arapiraca", "Rio Largo", "Palmeira dos Índios", "União dos Palmares", "Penedo", "São Miguel dos Campos", "Campo Alegre", "Coruripe", "Delmiro Gouveia"],
+  SE: ["Aracaju", "Nossa Senhora do Socorro", "Lagarto", "Itabaiana", "São Cristóvão", "Estância", "Tobias Barreto", "Simão Dias", "Itaporanga d'Ajuda"],
+  PI: ["Teresina", "Parnaíba", "Picos", "Piripiri", "Floriano", "Campo Maior", "Barras", "União", "Altos"],
+  RO: ["Porto Velho", "Ji-Paraná", "Ariquemes", "Cacoal", "Vilhena", "Jaru", "Rolim de Moura", "Guajará-Mirim", "Buritis", "Pimenta Bueno"],
+  TO: ["Palmas", "Araguaína", "Gurupi", "Porto Nacional", "Paraíso do Tocantins", "Colinas do Tocantins", "Guaraí", "Formoso do Araguaia", "Dianópolis"],
+  AC: ["Rio Branco", "Cruzeiro do Sul", "Sena Madureira", "Tarauacá", "Feijó", "Senador Guiomard", "Plácido de Castro"],
+  AP: ["Macapá", "Santana", "Laranjal do Jari", "Oiapoque", "Mazagão", "Porto Grande"],
+  RR: ["Boa Vista", "Rorainópolis", "Caracaraí", "Cantá", "Mucajaí", "Bonfim"],
+  ES: ["Vitória", "Vila Velha", "Serra", "Cariacica", "Cachoeiro de Itapemirim", "Linhares", "São Mateus", "Colatina", "Guarapari", "Aracruz", "Viana", "Nova Venécia"]
+};
 // Limpa "Sinop - MT" -> "Sinop"
 const limparCidade = (txt) => {
   if(!txt) return "";
   return txt.replace(/\s*-\s*[A-Z]{2}\s*$/,"").replace(/,\s*[A-Z]{2}\s*$/,"").trim();
 };
 
-export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, onDeletar, onSuporte, onAnuncio }) {
+export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, onDeletar, onSuporte, onAnuncio, onSalvarCidade }) {
   const [local, setLocal] = useState(limparCidade(usuario?.cidade || "Sinop") + " - MT");
   const [coords, setCoords] = useState(null);
   const [carregandoLocal, setCarregandoLocal] = useState(false);
@@ -45,6 +111,15 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
     if(usuario?.feedEstado) setEstadoFeed(usuario.feedEstado);
   }, [usuario]);
 
+  // Atualiza automaticamente a cidade selecionada quando troca o Estado
+  const handleTrocaEstado = (novoEstado) => {
+    setEstadoFeed(novoEstado);
+    const listaCidades = CIDADES_POR_ESTADO[novoEstado] || [];
+    if (listaCidades.length > 0) {
+      setCidadeInput(listaCidades[0]);
+    }
+  };
+
   const pedirLocalizacao = () => {
     if (!navigator.geolocation) return alert("Seu celular não tem GPS");
     setCarregandoLocal(true);
@@ -71,7 +146,7 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
 
   const salvarCidadeDesejada = async () => {
     let cidadeFinal = limparCidade(cidadeInput.trim() || cidadeFeed);
-    if(!cidadeFinal) return alert("Digite a cidade");
+    if(!cidadeFinal) return alert("Selecione a cidade");
     setSalvando(true);
     try {
       localStorage.setItem("feed_cidade_diariafacil", cidadeFinal);
@@ -80,18 +155,33 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
       setLocal(`${cidadeFinal} - ${estadoFeed}`);
       setCidadeFeed(cidadeFinal);
       setCidadeInput(cidadeFinal);
+
+      const dadosNovos = {
+        feedCidade: cidadeFinal,
+        feedEstado: estadoFeed,
+        cidadeDesejada: cidadeFinal,
+        estadoDesejado: estadoFeed,
+      };
+
       if(auth.currentUser){
-        await updateDoc(doc(db, "usuarios", auth.currentUser.uid), {
-          feedCidade: cidadeFinal,
-          feedEstado: estadoFeed,
-          cidadeDesejada: cidadeFinal,
-          estadoDesejado: estadoFeed,
-        });
+        await updateDoc(doc(db, "usuarios", auth.currentUser.uid), dadosNovos);
       }
+
+      if (onSalvarCidade) {
+        onSalvarCidade(dadosNovos);
+      }
+
       alert(`✅ Agora você vê vagas de ${cidadeFinal} - ${estadoFeed}`);
-    } catch(e){ alert("Erro ao salvar") }
+    } catch(e){ 
+      alert("Erro ao salvar: " + e.message); 
+    }
     setSalvando(false);
   };
+
+  // Cálculo de avaliação real
+  const totalAval = usuario?.totalAvaliacoes || 0;
+  const notaMedia = totalAval > 0 ? ((usuario?.sumNotas || 0) / totalAval).toFixed(1) : "5.0";
+  const cidadesDoEstado = CIDADES_POR_ESTADO[estadoFeed] || [cidadeInput];
 
   if (modo === "minhas") {
     return (
@@ -125,8 +215,8 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
           {usuario?.foto ? <img src={usuario.foto} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-semibold text-slate-500">{usuario?.nome?.[0]?.toUpperCase() || "A"}</div>}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[14px] truncate">{usuario?.nome || "Usuário"} • {cidadeFeed}</p>
-          <p className="text-[11px] text-slate-500 mt-1">4.9 • 12 diárias • Verificado</p>
+          <p className="font-semibold text-[14px] truncate">{usuario?.nome || "Usuário"}</p>
+          <p className="text-[11px] text-slate-500 mt-1">⭐ {notaMedia} ({totalAval} avaliações) • Verificado</p>
           <p className="text-[10px] mt-1 font-medium text-emerald-600">{coords ? "GPS ativo" : "GPS desativado"}</p>
         </div>
         <button onClick={onEditar} className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-medium">Editar</button>
@@ -137,23 +227,30 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
           <span className="font-semibold text-[13px]">Onde ver vagas!</span>
           <span className="text-[9px] bg-slate-900 text-white px-2.5 py-1 rounded-full font-medium tracking-widest uppercase">Diária Mode</span>
         </div>
-        <p className="text-[11px] text-slate-500 mt-1 leading-snug">Coloque a cidade que você deseja ver as vagas.</p>
+        <p className="text-[11px] text-slate-500 mt-1 leading-snug">Selecione o estado para listar as cidades disponíveis.</p>
         
         <div className="mt-3 grid grid-cols-[80px_1fr] gap-2">
           <div>
             <label className="text-[10px] font-medium text-slate-500">ESTADO</label>
-            <select value={estadoFeed} onChange={(e)=>setEstadoFeed(e.target.value)} className="mt-1 w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-2 text-[13px] font-medium focus:outline-none">
+            <select 
+              value={estadoFeed} 
+              onChange={(e)=>handleTrocaEstado(e.target.value)} 
+              className="mt-1 w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-2 text-[13px] font-medium focus:outline-none focus:border-slate-900"
+            >
               {ESTADOS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
             </select>
           </div>
           <div>
             <label className="text-[10px] font-medium text-slate-500">CIDADE QUE QUER VER</label>
-            <input 
+            <select
               value={cidadeInput}
               onChange={(e)=>setCidadeInput(e.target.value)}
-              placeholder="Ex: Cuiabá, Sorriso, Lucas..."
-              className="mt-1 w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-[13px] focus:outline-none focus:border-slate-900"
-            />
+              className="mt-1 w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-[13px] focus:outline-none focus:border-slate-900 font-medium"
+            >
+              {cidadesDoEstado.map(cid => (
+                <option key={cid} value={cid}>{cid}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -185,7 +282,10 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
 
       <div className="mt-3 bg-white border border-slate-200 rounded-2xl overflow-hidden">
         <div className="p-4 flex justify-between items-center">
-          <div><p className="font-medium text-[12px]">Contato</p><p className="text-[11px] mt-1 font-mono text-slate-600">{usuario?.zap || "(66) 9xxxx-xxxx"} • {usuario?.email || ""}</p></div>
+          <div>
+            <p className="font-medium text-[12px]">Contato</p>
+            <p className="text-[11px] mt-1 font-mono text-slate-600">{usuario?.zap || usuario?.email || "(66) 9xxxx-xxxx"}</p>
+          </div>
           <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-full font-medium">Escondido</span>
         </div>
         <div className="h-px bg-slate-100 mx-4"></div>

@@ -4,6 +4,16 @@ import { db } from "../firebase.js";
 import CardVaga from "../components/CardVaga";
 import CardAnuncio from "../components/CardAnuncio";
 
+// Função auxiliar para normalizar nomes de cidades ("Sinop - MT" -> "sinop")
+const normalizarTexto = (txt) => {
+  if (!txt) return "";
+  return txt
+    .toLowerCase()
+    .replace(/\s*-\s*[a-z]{2}\s*$/, "")
+    .replace(/,\s*[a-z]{2}\s*$/, "")
+    .trim();
+};
+
 // ===== COMPONENTE DO BANNER DO TOPO (GOOGLE + SEU) =====
 function BannerTopo() {
   const [banners, setBanners] = useState([])
@@ -96,10 +106,31 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
   }, [anunciosProp]);
 
   const listaBruta = vagasProp || vagasLocal;
-  const abertas = listaBruta.filter(v => !v.fechada && v.status !== "preenchida");
+  
+  // 1. FILTRO DE CIDADE EXATO DAS VAGAS
+  const cidadeDesejada = normalizarTexto(cidadeFiltro);
+  const estadoDesejado = (estadoFiltro || "").toLowerCase().trim();
+
+  const vagasDaCidade = listaBruta.filter(v => {
+    if (v.fechada || v.status === "preenchida") return false;
+    
+    // Se a vaga tiver cidade informada, compara com a escolhida no perfil
+    if (v.cidade) {
+      const cidadeVaga = normalizarTexto(v.cidade);
+      if (cidadeVaga !== cidadeDesejada) return false;
+    }
+    
+    // Se a vaga tiver estado informado, valida a sigla
+    if (v.estado && estadoDesejado) {
+      const estadoVaga = v.estado.toLowerCase().trim();
+      if (estadoVaga !== estadoDesejado) return false;
+    }
+
+    return true;
+  });
 
   const filtrarAnunciosPorLocal = (lista) => {
-    const cidadeAtual = (cidadeFiltro || "").toLowerCase().trim();
+    const cidadeAtual = normalizarTexto(cidadeFiltro);
     const estadoAtual = (estadoFiltro || "").toLowerCase().trim();
     const paisAtual = (paisFiltro || "Brasil").toLowerCase().trim();
     const agora = new Date();
@@ -112,7 +143,7 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
         } catch (e) {}
       }
       if (!a.alcance) {
-        return cidadeAtual.includes("sinop") || a.cidadeLower === "sinop" || a.cidade === "Sinop";
+        return cidadeAtual === "sinop" || a.cidadeLower === "sinop" || a.cidade === "Sinop";
       }
       if (a.alcance === "brasil") return true;
       if (a.alcance === "pais") {
@@ -124,7 +155,7 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
         return (a.estadoLower || (a.estado || "").toLowerCase()) === estadoAtual;
       }
       if (a.alcance === "cidade") {
-        return (a.cidadeLower || (a.cidade || "").toLowerCase()) === cidadeAtual;
+        return normalizarTexto(a.cidadeLower || a.cidade) === cidadeAtual;
       }
       return true;
     });
@@ -133,8 +164,9 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
   const listaBrutaAnuncios = anunciosProp?.length > 0 ? anunciosProp : anunciosLocal;
   const anunciosAtivos = filtrarAnunciosPorLocal(listaBrutaAnuncios);
 
+  // 2. BUSCA POR TERMO DENTRO DAS VAGAS DA CIDADE ESCOLHIDA
   const termo = busca.toLowerCase().trim();
-  const listaFiltrada = abertas.filter(v => {
+  const listaFiltrada = vagasDaCidade.filter(v => {
     if (!termo) return true;
     const texto = `${v.titulo || ""} ${v.descricao || ""} ${v.tipo || ""} ${v.categoria || ""} ${v.cidade || ""}`.toLowerCase();
     return texto.includes(termo);
@@ -177,7 +209,7 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Pesquisar: garçom, diarista, faxina..."
+            placeholder={`Pesquisar vagas em ${cidadeFiltro}...`}
             className="w-full h-11 pl-10 pr-10 bg-white border border-slate-200 rounded-full text-[13px] focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900"
           />
           {busca && (
@@ -189,15 +221,22 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
       <div className="mb-5">
         <h2 className="text-[11px] font-medium tracking-widest text-slate-400 uppercase">Vagas abertas</h2>
         <p className="text-[12px] text-slate-500 mt-1">
-          {cidadeFiltro} e região • {listaFiltrada.length} vaga(s) {termo && `para "${termo}"`} {anunciosAtivos.length > 0 && `• ${anunciosAtivos.length} anúncio(s) nessa região`}
+          Vagas de <b className="text-slate-900">{cidadeFiltro} - {estadoFiltro}</b> • {listaFiltrada.length} vaga(s) {termo && `para "${termo}"`}
         </p>
       </div>
 
       <div className="space-y-4">
         {feedMisto.length === 0 ? (
           <div className="bg-white border border-dashed rounded-2xl p-10 text-center">
-            <p className="text-[13px] font-medium text-slate-700">{termo ? `Nenhuma vaga para "${termo}"` : "Nenhuma vaga aberta agora"}</p>
-            <button onClick={() => setBusca("")} className="mt-3 text-[11px] underline text-slate-500">Limpar pesquisa</button>
+            <p className="text-[13px] font-medium text-slate-700">
+              {termo ? `Nenhuma vaga em ${cidadeFiltro} para "${termo}"` : `Nenhuma vaga disponível em ${cidadeFiltro} no momento.`}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Você pode trocar a cidade no seu Perfil para ver vagas de outras regiões.
+            </p>
+            {termo && (
+              <button onClick={() => setBusca("")} className="mt-3 text-[11px] underline text-slate-500">Limpar pesquisa</button>
+            )}
           </div>
         ) : (
           feedMisto.map(item =>
