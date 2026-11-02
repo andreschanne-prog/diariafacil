@@ -2,9 +2,12 @@ import { useState, useEffect } from "react";
 import { createUserWithEmailAndPassword, updateProfile, signInWithPopup } from "firebase/auth";
 import { auth, googleProvider, db } from "../firebase.js";
 import { doc, setDoc } from "firebase/firestore";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivacidade, onAbrirTermos, termosJaAceito, privacidadeJaAceita }) {
   const [form, setForm] = useState({ nome: "", email: "", zap: "", senha: "", confirmarSenha: "" });
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
   const [aceitaTermos, setAceitaTermos] = useState(false);
   const [aceitaPrivacidade, setAceitaPrivacidade] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -74,7 +77,6 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
     setSalvando(false);
   };
 
-  // FUNÇÃO QUE CHAMA CORRETO - funciona com os 2 nomes
   const abrirTermos = () => {
     if (onVerTermos) onVerTermos();
     else if (onAbrirTermos) onAbrirTermos("termos");
@@ -110,16 +112,52 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
             <input value={form.nome} onChange={e=>setForm({...form, nome:e.target.value})} placeholder="Seu nome" className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
             <input value={form.email} onChange={e=>setForm({...form, email:e.target.value})} placeholder="Seu email" type="email" className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
             <input value={form.zap} onChange={e=>setForm({...form, zap:e.target.value})} placeholder="WhatsApp com DDD - 66..." className="w-full bg-slate-50 border border-orange-200 h-11 rounded-xl px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
+            
             <div className="grid grid-cols-2 gap-3">
+              {/* Campo Senha */}
               <div>
-                <input value={form.senha} onChange={e=>setForm({...form, senha:e.target.value})} placeholder="Senha (min 6)" type="password" className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
+                <div className="relative">
+                  <input 
+                    value={form.senha} 
+                    onChange={e=>setForm({...form, senha:e.target.value})} 
+                    placeholder="Senha" 
+                    type={mostrarSenha ? "text" : "password"} 
+                    className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl pl-3 pr-9 text-[13px] outline-none focus:border-slate-900 focus:bg-white" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setMostrarSenha(!mostrarSenha)} 
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 focus:outline-none"
+                  >
+                    {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
                 <p className="text-[9px] text-slate-400 mt-1 px-1">Mínimo 6 dígitos</p>
               </div>
-              <input value={form.confirmarSenha} onChange={e=>setForm({...form, confirmarSenha:e.target.value})} placeholder="Repetir senha" type="password" className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
+
+              {/* Campo Confirmar Senha */}
+              <div>
+                <div className="relative">
+                  <input 
+                    value={form.confirmarSenha} 
+                    onChange={e=>setForm({...form, confirmarSenha:e.target.value})} 
+                    placeholder="Repetir senha" 
+                    type={mostrarConfirmarSenha ? "text" : "password"} 
+                    className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl pl-3 pr-9 text-[13px] outline-none focus:border-slate-900 focus:bg-white" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setMostrarConfirmarSenha(!mostrarConfirmarSenha)} 
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 focus:outline-none"
+                  >
+                    {mostrarConfirmarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* TERMOS - DIV E NÃO LABEL - AGORA VAI */}
+          {/* TERMOS */}
           <div className="mt-5 space-y-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
             <div className="flex items-start gap-2">
               <input type="checkbox" checked={aceitaTermos} onChange={e=>setAceitaTermos(e.target.checked)} className="mt-[2px] w-4 h-4 accent-slate-900" />

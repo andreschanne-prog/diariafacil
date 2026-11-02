@@ -291,7 +291,7 @@ export default function App() {
       )}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-2 py-3 flex justify-center z-50">
         <div className="flex items-center gap-1 bg-slate-100 rounded-full p-1">
-          {navItem("feed","FEED")}
+          {navItem("feed","Principal")}
           {navItem("minhas","Anuncios")}
           {navItem("aceitas","Aceitas",aceitasCount)}
           {navItem("perfil","Perfil")}

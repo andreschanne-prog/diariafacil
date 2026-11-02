@@ -68,7 +68,7 @@ export default function CardAnuncio({ anuncio }) {
     <div ref={cardRef} className="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-3">
       <div className="px-4 py-2.5 flex justify-between items-center bg-slate-50/50">
         <span className="text-[10px] text-slate-500 font-medium tracking-wide">
-          Anúncio • {anuncio.cidade || anuncio.estado || "Brasil"} • Patrocinado
+          Anúncio • {anuncio.cidade || anuncio.estado || "Brasil"} • Patrocinado por:
         </span>
         <span className="text-[9px] text-slate-400 border border-slate-200 rounded-full px-2 py-0.5">Anúncio</span>
       </div>

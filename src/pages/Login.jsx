@@ -2,10 +2,12 @@ import { auth, db } from "../firebase.js"
 import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from "firebase/auth"
 import { doc, getDoc, setDoc } from "firebase/firestore"
 import { useState } from "react"
+import { Eye, EyeOff } from "lucide-react"
 
 export default function Login({ onLogin, onCadastro }) {
   const [email, setEmail] = useState("")
   const [senha, setSenha] = useState("")
+  const [mostrarSenha, setMostrarSenha] = useState(false) // Estado para controlar o olhinho
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState("")
 
@@ -34,8 +36,6 @@ export default function Login({ onLogin, onCadastro }) {
       const result = await signInWithPopup(auth, provider)
       const user = result.user
 
-      // GARANTIA: Verifica se o usuário já tem documento no Firestore.
-      // Se não tiver, cria um perfil padrão para evitar o loop de cadastro incompleto.
       const userRef = doc(db, "usuarios", user.uid)
       const snap = await getDoc(userRef)
 
@@ -76,10 +76,29 @@ export default function Login({ onLogin, onCadastro }) {
               <label className="text-[11px] font-medium text-slate-600">Email</label>
               <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" required className="mt-1 w-full h-10 bg-slate-50 border border-slate-200 rounded-full px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
             </div>
+            
+            {/* Campo de Senha com o Botão do Olhinho */}
             <div>
               <label className="text-[11px] font-medium text-slate-600">Senha</label>
-              <input type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="sua senha" required className="mt-1 w-full h-10 bg-slate-50 border border-slate-200 rounded-full px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
+              <div className="relative mt-1">
+                <input 
+                  type={mostrarSenha ? "text" : "password"} 
+                  value={senha} 
+                  onChange={e=>setSenha(e.target.value)} 
+                  placeholder="sua senha" 
+                  required 
+                  className="w-full h-10 bg-slate-50 border border-slate-200 rounded-full pl-4 pr-11 text-[13px] outline-none focus:border-slate-900 focus:bg-white" 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setMostrarSenha(!mostrarSenha)} 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 focus:outline-none"
+                >
+                  {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
+
             {erro && <p className="text-[11px] text-red-600 bg-red-50 border border-red-200 rounded-full px-3 py-2 text-center">{erro}</p>}
             <button type="submit" disabled={carregando} className="w-full h-10 bg-slate-900 text-white rounded-full text-[13px] font-medium hover:bg-black disabled:opacity-50">
               {carregando ? "Entrando..." : "Entrar com email"}
