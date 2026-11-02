@@ -59,7 +59,7 @@ const CIDADES_POR_ESTADO = {
   AM: ["Manaus", "Parintins", "Itacoatiara", "Manacapuru", "Coari", "Tabatinga", "Maués", "Tefé", "Iranduba", "Humaitá"],
   MA: ["São Luís", "Imperatriz", "São José de Ribamar", "Timon", "Caxias", "Codó", "Paço do Lumiar", "Açailândia", "Bacabal", "Balsas", "Santa Inês"],
   PB: ["João Pessoa", "Campina Grande", "Santa Rita", "Patos", "Bayeux", "Sousa", "Cajazeiras", "Cabedelo", "Guarabira", "Mamanguape"],
-  RN: ["Natal", "Mossoró", "Parnamirim", "São Gonçalo do Amarante", "Macaíba", "Ceará-Mirim", "Caicó", "Açu", "Currais Novos", "São José de Mipibu"],
+  RN: ["Natal", "Mossoró", "Parnamirim", "São Gonçalo do Amarante", "Macaíba", "Caicó", "Açu", "Currais Novos", "São José de Mipibu"],
   AL: ["Maceió", "Arapiraca", "Rio Largo", "Palmeira dos Índios", "União dos Palmares", "Penedo", "São Miguel dos Campos", "Campo Alegre", "Coruripe", "Delmiro Gouveia"],
   SE: ["Aracaju", "Nossa Senhora do Socorro", "Lagarto", "Itabaiana", "São Cristóvão", "Estância", "Tobias Barreto", "Simão Dias", "Itaporanga d'Ajuda"],
   PI: ["Teresina", "Parnaíba", "Picos", "Piripiri", "Floriano", "Campo Maior", "Barras", "União", "Altos"],
@@ -70,6 +70,7 @@ const CIDADES_POR_ESTADO = {
   RR: ["Boa Vista", "Rorainópolis", "Caracaraí", "Cantá", "Mucajaí", "Bonfim"],
   ES: ["Vitória", "Vila Velha", "Serra", "Cariacica", "Cachoeiro de Itapemirim", "Linhares", "São Mateus", "Colatina", "Guarapari", "Aracruz", "Viana", "Nova Venécia"]
 };
+
 // Limpa "Sinop - MT" -> "Sinop"
 const limparCidade = (txt) => {
   if(!txt) return "";
@@ -197,7 +198,9 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
         <h2 className="text-[15px] font-semibold tracking-tight">Perfil</h2>
         <div className="relative">
           <button onClick={()=>setMenuAberto(!menuAberto)} className="w-8 h-8 bg-white border border-slate-200 rounded-full flex flex-col items-center justify-center gap-[3px]">
-            <div className="w-3 h-[1.5px] bg-slate-700"></div><div className="w-3 h-[1.5px] bg-slate-700"></div><div className="w-3 h-[1.5px] bg-slate-700"></div>
+            <div className="w-3 h-[1.5px] bg-slate-700"></div>
+            <div className="w-3 h-[1.5px] bg-slate-700"></div>
+            <div className="w-3 h-[1.5px] bg-slate-700"></div>
           </button>
           {menuAberto && (
             <div className="absolute right-0 top-10 w-[200px] bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden z-50">
@@ -296,6 +299,7 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
       </div>
 
       <button onClick={onSair} className="w-full mt-6 h-10 border border-red-200 text-red-600 rounded-full text-[12px] font-medium">Sair da conta</button>
+      
       {menuAberto && <div onClick={()=>setMenuAberto(false)} className="fixed inset-0 z-40"></div>}
     </div>
   )

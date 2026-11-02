@@ -18,6 +18,7 @@ import Termos from "./pages/termos"
 import Privacidade from "./pages/privacidade"
 import CriarAnuncio from "./pages/CriarAnuncio"
 import Welcome from "./components/Welcome"
+import DeletarConta from "./components/DeletarConta"
 
 export default function App() {
   const [tela, setTela] = useState("feed")
@@ -117,7 +118,6 @@ export default function App() {
     const qAnu = query(collection(db, "anuncios"), orderBy("criadoEm", "desc"));
     const unsub = onSnapshot(qAnu, (snap) => {
       const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      // Mantém brutos todos para o painel gerenciar, mas filtra para o feed os ativos
       setAnunciosBrutos(lista)
     })
     return () => unsub()
@@ -130,7 +130,6 @@ export default function App() {
     const cidadeAtual = cidadeFiltro.toLowerCase().trim()
     const estadoAtual = estadoFiltro.toLowerCase().trim()
     
-    // Filtra apenas anúncios ativos para o feed geral
     let filtrados = anunciosBrutos.filter(a => {
       if (a.ativo === false) return false
       if (!a.alcance) return true
@@ -258,6 +257,9 @@ export default function App() {
       {tela === "admin" && <Admin onVoltar={()=>setTela("feed")} onAbrirCriarAnuncio={() => { setAnuncioEditando(null); setTela("criarAnuncio") }} onEditarAnuncio={(anuncio) => { setAnuncioEditando(anuncio); setTela("criarAnuncio") }} />}
       {tela === "criarAnuncio" && <CriarAnuncio anuncioParaEditar={anuncioEditando} onVoltar={()=>setTela("admin")} />}
       
+      {/* TELA DE EXCLUIR CONTA */}
+      {tela === "deletar" && <DeletarConta />}
+
       {/* TELA DE PERFIL */}
       {tela === "perfil" && (
         <>

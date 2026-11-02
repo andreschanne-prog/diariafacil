@@ -8,6 +8,7 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
   const [denuncias, setDenuncias] = useState([])
   const [anuncios, setAnuncios] = useState([])
   const [bannersTopo, setBannersTopo] = useState([])
+  const [contasDeletadas, setContasDeletadas] = useState([]) // Novo estado para as contas deletadas
   const [aba, setAba] = useState("anuncios")
   const [filtroCidade, setFiltroCidade] = useState("todos")
   const [buscaAnuncio, setBuscaAnuncio] = useState("")
@@ -30,13 +31,21 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
       setUsuarios(snapUsers.docs.map(d => ({ id: d.id, ...d.data() })))
     }
     carregar()
+
     const qDen = query(collection(db, "denuncias"), orderBy("criadoEm", "desc"))
     const unsubDen = onSnapshot(qDen, snap => setDenuncias(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    
     const qAnu = query(collection(db, "anuncios"), orderBy("criadoEm", "desc"))
     const unsubAnu = onSnapshot(qAnu, snap => setAnuncios(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    
     const qTopo = query(collection(db, "banners_topo"), orderBy("criadoEm", "desc"))
     const unsubTopo = onSnapshot(qTopo, snap => setBannersTopo(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-    return () => { unsubDen(); unsubAnu(); unsubTopo(); }
+
+    // Escuta em tempo real a coleção de contas deletadas e motivos
+    const qDel = query(collection(db, "account_deletions"), orderBy("deletedAt", "desc"))
+    const unsubDel = onSnapshot(qDel, snap => setContasDeletadas(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+
+    return () => { unsubDen(); unsubAnu(); unsubTopo(); unsubDel(); }
   }, [])
 
   const toggleAnuncio = async (a) => { await updateDoc(doc(db, "anuncios", a.id), { ativo: !a.ativo }) }
@@ -115,12 +124,16 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
     <div className="max-w-[700px] mx-auto min-h-screen bg-[#fef9ef] pb-24">
       <div className="bg-black text-white p-6 sticky top-0 z-10 flex items-center gap-4">
         <button onClick={onVoltar} className="w-10 h-10 bg-white text-black rounded-full font-bold">←</button>
-        <div><h2 className="font-black leading-none">👑 PAINEL ADM</h2><p className="text-[10px] opacity-60 mt-1">{pendentes} denúncias • {anuncios.length} anúncios • {bannersTopo.length} topo • {totalImp} views</p></div>
+        <div>
+          <h2 className="font-black leading-none">👑 PAINEL ADM</h2>
+          <p className="text-[10px] opacity-60 mt-1">{pendentes} denúncias • {anuncios.length} anúncios • {contasDeletadas.length} contas saíram • {totalImp} views</p>
+        </div>
       </div>
 
       <div className="p-4 flex gap-2 overflow-x-auto">
         <button onClick={()=>setAba("anuncios")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="anuncios" ? "bg-slate-900 text-white" : "bg-white border"}`}>💰 ANÚNCIOS ({anuncios.length})</button>
         <button onClick={()=>setAba("topo")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="topo" ? "bg-blue-600 text-white" : "bg-white border"}`}>🔝 TOPO ({bannersTopo.length})</button>
+        <button onClick={()=>setAba("contasDeletadas")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="contasDeletadas" ? "bg-red-700 text-white" : "bg-white border"}`}>🗑️ CONTAS DELETADAS ({contasDeletadas.length})</button>
         <button onClick={()=>setAba("denuncias")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="denuncias" ? "bg-red-600 text-white" : "bg-white border"}`}>🚨 DENÚNCIAS ({pendentes})</button>
         <button onClick={()=>setAba("vagas")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="vagas" ? "bg-black text-white" : "bg-white border"}`}>VAGAS ({vagas.length})</button>
         <button onClick={()=>setAba("users")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="users" ? "bg-black text-white" : "bg-white border"}`}>USUÁRIOS ({usuarios.length})</button>
@@ -156,7 +169,7 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
                         <p className="font-bold text-[13px] truncate">{a.titulo}</p>
                         <span className={`text-[8px] px-2 py-0.5 rounded-full border h-fit ${a.ativo === false ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`}>{a.ativo === false ? 'PAUSADO' : 'ATIVO'}</span>
                       </div>
-                      <p className="text-[10px] text-slate-500">{a.alcance === 'brasil' ? '🇧🇷 Brasil' : a.alcance === 'estado' ? `📍 ${a.estado}` : `📍 ${a.cidade}/${a.estado}`} • {a.alcance}</p>
+                      <p className="text-[10px] text-slate-500">{a.alcance === 'brasil' ? '🇧🇷 Brasil' : a.alcance === 'estado' ? `📍 ${a.estado}` : `📍 ${a.cidade}/${a.estado}`}</p>
                       <div className="grid grid-cols-3 gap-1 mt-2">
                         <div className="bg-slate-50 rounded-lg p-1.5 text-center"><p className="text-[8px] text-slate-400">VIEWS</p><p className="font-black text-[12px]">{a.impressoes || 0}</p></div>
                         <div className="bg-slate-50 rounded-lg p-1.5 text-center"><p className="text-[8px] text-slate-400">CLIQUES</p><p className="font-black text-[12px]">{a.cliques || 0}</p></div>
@@ -207,7 +220,7 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
                           <p className="font-bold text-[12px]">{b.titulo}</p>
                           <span className={`text-[8px] px-2 py-0.5 rounded-full ${b.ativo ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{b.ativo ? 'ATIVO' : 'PAUSADO'}</span>
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1">Tipo: {b.tipo} • Expira: {expiraTxt} {vencido && '• VENCIDO'}</p>
+                        <p className="text-[10px] text-slate-500 mt-1">Tipo: {b.tipo} | Expira: {expiraTxt} {vencido && '• VENCIDO'}</p>
                         <div className="flex gap-2 mt-3">
                           <button onClick={()=>toggleTopo(b)} className="flex-1 h-8 border rounded-full text-[10px] font-bold">{b.ativo ? 'Pausar' : 'Ativar'}</button>
                           <button onClick={async()=>{if(confirm("Apagar banner topo?")) await deleteDoc(doc(db,"banners_topo",b.id))}} className="h-8 px-3 border border-red-200 text-red-600 rounded-full text-[10px] font-bold">Apagar</button>
@@ -262,6 +275,39 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
               </div>
             )}
           </>
+        )}
+
+        {/* Aba de Contas Deletadas e Motivos */}
+        {aba === "contasDeletadas" && (
+          <div className="space-y-3">
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-3 text-[11px] text-red-800">
+              🗑️ Aqui estão os motivos informados pelos usuários que decidiram excluir suas contas no aplicativo.
+            </div>
+            {contasDeletadas.length === 0 && (
+              <p className="text-center text-[12px] text-slate-400 mt-6">Nenhuma conta deletada até o momento.</p>
+            )}
+            {contasDeletadas.map(delItem => {
+              let dataFormatada = "Data não disponível";
+              if (delItem.deletedAt) {
+                try {
+                  const d = delItem.deletedAt.toDate ? delItem.deletedAt.toDate() : new Date(delItem.deletedAt);
+                  dataFormatada = d.toLocaleString('pt-BR');
+                } catch {}
+              }
+              return (
+                <div key={delItem.id} className="bg-white border rounded-2xl p-4 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <p className="font-bold text-[13px] text-slate-900">{delItem.email}</p>
+                    <span className="text-[9px] bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-medium">{dataFormatada}</span>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Motivo relatado:</p>
+                    <p className="text-[12px] text-slate-700 leading-relaxed italic">"{delItem.reason}"</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
 
         {aba === "denuncias" && denuncias.map(d => (<div key={d.id} className="p-4 rounded-xl border bg-white"><p className="font-bold text-sm">{d.vagaTitulo}</p><p className="text-[11px] mt-1">{d.motivo}</p></div>))}
