@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase.js";
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { db, auth } from "../firebase.js";
 import CardVaga from "../components/CardVaga";
 import CardAnuncio from "../components/CardAnuncio";
 
-// Função auxiliar para normalizar nomes de cidades ("Sinop - MT" -> "sinop")
+// Função auxiliar para normalizar nomes de cidades
 const normalizarTexto = (txt) => {
   if (!txt) return "";
   return txt
@@ -14,7 +14,15 @@ const normalizarTexto = (txt) => {
     .trim();
 };
 
-// ===== COMPONENTE DO BANNER DO TOPO (GOOGLE + SEU) =====
+// Data local no formato YYYY-MM-DD (sem erros de fuso horário)
+const formatarDataLocal = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+// ===== COMPONENTE DO BANNER DO TOPO =====
 function BannerTopo() {
   const [banners, setBanners] = useState([])
   const [index, setIndex] = useState(0)
@@ -77,6 +85,7 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
   const [anunciosLocal, setAnunciosLocal] = useState([]);
   const [loading, setLoading] = useState(!vagasProp);
   const [busca, setBusca] = useState("");
+  const [atualizando, setAtualizando] = useState(false);
 
   useEffect(() => {
     if (vagasProp) {
@@ -105,22 +114,64 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
     return () => unsub();
   }, [anunciosProp]);
 
+  // Função para atualizar manualmente o feed
+  const handleAtualizarFeed = () => {
+    setAtualizando(true);
+    setBusca("");
+    setTimeout(() => {
+      setAtualizando(false);
+    }, 600);
+  };
+
+  // VERIFICAÇÃO AUTOMÁTICA DE VAGAS EXPIRADAS E AVISO AO USUÁRIO
+  useEffect(() => {
+    const listaParaChecar = vagasProp || vagasLocal;
+    if (!listaParaChecar || listaParaChecar.length === 0) return;
+
+    const hojeStr = formatarDataLocal(new Date());
+    const usuarioAtualUid = auth.currentUser?.uid;
+
+    listaParaChecar.forEach(async (vaga) => {
+      if (vaga.status === "aberta" && !vaga.fechada && vaga.datasEspecificas && vaga.datasEspecificas.length > 0) {
+        const datasOrdenadas = [...vaga.datasEspecificas].sort();
+        const ultimaData = datasOrdenadas[datasOrdenadas.length - 1];
+
+        if (ultimaData < hojeStr) {
+          try {
+            const vagaRef = doc(db, "vagas", vaga.id);
+            await updateDoc(vagaRef, { status: "fechada", fechada: true });
+
+            if (usuarioAtualUid && (vaga.anuncianteId === usuarioAtualUid || vaga.uid === usuarioAtualUid)) {
+              console.log(`Sua vaga "${vaga.titulo}" expirou e foi fechada automaticamente.`);
+            }
+          } catch (e) {
+            console.error("Erro ao fechar vaga expirada:", e);
+          }
+        }
+      }
+    });
+  }, [vagasProp, vagasLocal]);
+
   const listaBruta = vagasProp || vagasLocal;
   
-  // 1. FILTRO DE CIDADE EXATO DAS VAGAS
   const cidadeDesejada = normalizarTexto(cidadeFiltro);
   const estadoDesejado = (estadoFiltro || "").toLowerCase().trim();
+  const hojeStr = formatarDataLocal(new Date());
 
   const vagasDaCidade = listaBruta.filter(v => {
     if (v.fechada || v.status === "preenchida") return false;
     
-    // Se a vaga tiver cidade informada, compara com a escolhida no perfil
+    if (v.datasEspecificas && v.datasEspecificas.length > 0) {
+      const datasOrdenadas = [...v.datasEspecificas].sort();
+      const ultimaDataStr = datasOrdenadas[datasOrdenadas.length - 1];
+      if (ultimaDataStr < hojeStr) return false;
+    }
+
     if (v.cidade) {
       const cidadeVaga = normalizarTexto(v.cidade);
       if (cidadeVaga !== cidadeDesejada) return false;
     }
     
-    // Se a vaga tiver estado informado, valida a sigla
     if (v.estado && estadoDesejado) {
       const estadoVaga = v.estado.toLowerCase().trim();
       if (estadoVaga !== estadoDesejado) return false;
@@ -164,7 +215,6 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
   const listaBrutaAnuncios = anunciosProp?.length > 0 ? anunciosProp : anunciosLocal;
   const anunciosAtivos = filtrarAnunciosPorLocal(listaBrutaAnuncios);
 
-  // 2. BUSCA POR TERMO DENTRO DAS VAGAS DA CIDADE ESCOLHIDA
   const termo = busca.toLowerCase().trim();
   const listaFiltrada = vagasDaCidade.filter(v => {
     if (!termo) return true;
@@ -200,11 +250,10 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
 
   return (
     <div className="max-w-[640px] mx-auto px-4 pt-0 pb-28">
-      {/* BANNER DO TOPO AQUI */}
       <BannerTopo />
 
-      <div className="mb-4 mt-2">
-        <div className="relative">
+      <div className="mb-4 mt-2 flex gap-2">
+        <div className="relative flex-1">
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
           <input
             value={busca}
@@ -216,16 +265,28 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
             <button onClick={() => setBusca("")} className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-100 rounded-full text-[11px]">✕</button>
           )}
         </div>
+
+        {/* BOTÃO DE ATUALIZAR FEED */}
+        <button 
+          onClick={handleAtualizarFeed}
+          title="Atualizar feed"
+          className="h-11 px-4 bg-white border border-slate-200 rounded-full text-[13px] font-medium hover:bg-slate-50 transition flex items-center gap-1.5 shrink-0 shadow-sm"
+        >
+          <span className={`inline-block text-sm ${atualizando ? "animate-spin" : ""}`}>🔄</span>
+          <span className="hidden sm:inline">Atualizar</span>
+        </button>
       </div>
 
-      <div className="mb-5">
-        <h2 className="text-[11px] font-medium tracking-widest text-slate-400 uppercase">Vagas abertas</h2>
-        <p className="text-[12px] text-slate-500 mt-1">
-          Vagas de <b className="text-slate-900">{cidadeFiltro} - {estadoFiltro}</b> • {listaFiltrada.length} vaga(s) {termo && `para "${termo}"`}
-        </p>
+      <div className="mb-5 flex justify-between items-center">
+        <div>
+          <h2 className="text-[11px] font-medium tracking-widest text-slate-400 uppercase">Vagas abertas</h2>
+          <p className="text-[12px] text-slate-500 mt-1">
+            Vagas de <b className="text-slate-900">{cidadeFiltro} / {estadoFiltro}</b> • {listaFiltrada.length} vaga(s) {termo && `para "${termo}"`}
+          </p>
+        </div>
       </div>
 
-      <div className="space-y-4">
+      <div className={`space-y-4 transition-opacity duration-300 ${atualizando ? "opacity-30" : "opacity-100"}`}>
         {feedMisto.length === 0 ? (
           <div className="bg-white border border-dashed rounded-2xl p-10 text-center">
             <p className="text-[13px] font-medium text-slate-700">

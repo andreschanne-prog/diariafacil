@@ -14,6 +14,7 @@ const MOTIVOS = [
 export default function CardVaga({ vaga, onVerPerfil }) {
   const [candidatou, setCandidatou] = useState(false);
   const [imgErro, setImgErro] = useState(false);
+  const [imgVagaErro, setImgVagaErro] = useState(false);
   const [showDenuncia, setShowDenuncia] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [detalhe, setDetalhe] = useState("");
@@ -25,6 +26,9 @@ export default function CardVaga({ vaga, onVerPerfil }) {
   const fotoPerfil = vaga.anuncianteFoto || vaga.fotoAnunciante || vaga.anunciante?.foto || vaga.foto || vaga.criadorFoto || "";
   const nomePerfil = vaga.anuncianteNome || vaga.nome || vaga.anunciante?.nome || "Anunciante";
   const inicial = nomePerfil?.[0]?.toUpperCase() || "A";
+
+  // Foto da vaga cadastrada
+  const fotoVaga = vaga.fotoVaga || vaga.fotoUrl || "";
 
   const formatarDataPostagem = () => {
     try {
@@ -88,7 +92,6 @@ export default function CardVaga({ vaga, onVerPerfil }) {
         denuncianteId: user.uid || "",
         denuncianteEmail: user.email || "",
         denuncianteNome: user.displayName || user.email?.split("@")[0] || "",
-        // CORREÇÃO: nunca deixa undefined
         denunciadoId: vaga.anuncianteId || vaga.uid || vaga.anunciante?.uid || "",
         denunciadoNome: vaga.anuncianteNome || vaga.nome || "",
         motivo: motivo || "",
@@ -140,6 +143,14 @@ export default function CardVaga({ vaga, onVerPerfil }) {
 
         <div className="mt-4">
           <h3 className="font-semibold text-[15px] leading-snug text-slate-900">{vaga.titulo}</h3>
+          
+          {/* EXIBIÇÃO DA FOTO DA VAGA NO CARD (SE HOUVER) */}
+          {fotoVaga && !imgVagaErro && (
+            <div className="mt-3 w-full h-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+              <img src={fotoVaga} alt="Foto da vaga" onError={()=>setImgVagaErro(true)} className="w-full h-full object-cover" />
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-1.5 mt-3">
             <span className="text-[11px] px-2.5 py-1 bg-slate-50 border rounded-full text-slate-600">{vaga.qtd || 1} pessoa</span>
             <span className="text-[11px] px-2.5 py-1 bg-slate-50 border rounded-full text-slate-600">{vaga.genero === 'mulher' ? 'Mulher' : vaga.genero === 'homem' ? 'Homem' : 'Ambos'}</span>
@@ -174,10 +185,10 @@ export default function CardVaga({ vaga, onVerPerfil }) {
         <div className="fixed inset-0 z-[100] bg-black/50 flex items-end sm:items-center justify-center p-4">
           <div className="bg-white w-full max-w-[400px] rounded-t-[20px] sm:rounded-[20px] p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center">
-              <h3 className="font-semibold text-[15px]">Denunciar vaga</h3>
+              <h3 className="font-semibold text-[15px]">Denunciar anúncio</h3>
               <button onClick={()=>setShowDenuncia(false)} className="w-8 h-8 rounded-full border flex items-center justify-center">✕</button>
             </div>
-            <p className="text-[12px] text-slate-500 mt-2">Vaga: {vaga.titulo} • {vaga.anuncianteNome}</p>
+            <p className="text-[12px] text-slate-500 mt-2">Vaga: {vaga.titulo} <br/> {vaga.anuncianteNome}</p>
             
             <div className="mt-4 space-y-2">
               {MOTIVOS.map(m=>(

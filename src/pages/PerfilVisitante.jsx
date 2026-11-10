@@ -59,6 +59,10 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
     return "Recentemente"
   }
 
+  // Obter o WhatsApp ou telefone cadastrado
+  const contatoZap = visitado?.zap || visitado?.whatsapp || visitado?.telefone || visitado?.celular || ""
+  const limparZap = contatoZap.replace(/\D/g, '')
+
   if (carregando) {
     return (
       <div className="max-w-[600px] mx-auto min-h-screen bg-[#fef9ef] p-6 flex items-center justify-center">
@@ -97,7 +101,6 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
       <div className="p-6 space-y-4">
         {/* Header do Perfil */}
         <div className="bg-white p-6 rounded-[24px] border flex gap-4 items-center shadow-sm">
-          {/* Foto de Perfil com Borda Quadrada e clique para expandir */}
           <div 
             onClick={() => visitado.foto && setFotoExpandida(true)}
             className={`w-16 h-16 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-xl overflow-hidden shrink-0 ${visitado.foto ? 'cursor-pointer hover:opacity-95 transition' : ''}`}
@@ -167,37 +170,49 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
           </div>
         </div>
 
-        {/* Informações Extras */}
+        {/* Informações de Contato Visíveis */}
         <div className="bg-white rounded-[24px] border shadow-sm overflow-hidden">
-          <div className="flex justify-between items-center p-4">
+          <div className="p-4 flex justify-between items-center">
             <div>
-              <p className="font-bold text-[13px]">📞 Contato</p>
-              <p className="text-[11px] mt-0.5 text-slate-400">O contato fica oculto até negociarem</p>
+              <p className="font-bold text-[13px]">📞 Contato WhatsApp</p>
+              <p className="text-[12px] text-slate-600 mt-0.5 font-medium">{contatoZap || "Não informado"}</p>
             </div>
-            <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full font-bold">
-              🔒 OCULTO
-            </span>
+            {limparZap && (
+              <a 
+                href={`https://wa.me/55${limparZap}`} 
+                target="_blank" 
+                rel="noreferrer"
+                className="bg-emerald-600 text-white px-4 py-2 rounded-full text-[11px] font-bold hover:bg-emerald-700 transition shadow-sm"
+              >
+                Abrir WhatsApp
+              </a>
+            )}
           </div>
+
           <div className="h-[1px] bg-slate-100 mx-4"></div>
+          
+          <div className="p-4">
+            <p className="font-bold text-[13px]">📧 E-mail</p>
+            <p className="text-[12px] mt-0.5 text-slate-600">{visitado.email || "Não informado"}</p>
+          </div>
+
+          <div className="h-[1px] bg-slate-100 mx-4"></div>
+
           <div className="p-4">
             <p className="font-bold text-[13px]">📍 Cidade principal</p>
             <p className="text-[12px] mt-0.5 text-slate-600">{visitado.cidade || visitado.local || "Sinop - MT"}</p>
           </div>
+
           <div className="h-[1px] bg-slate-100 mx-4"></div>
+
           <div className="p-4 flex justify-between items-center">
             <span className="font-bold text-[13px]">📅 Membro na plataforma</span>
             <span className="text-[12px] font-medium text-slate-500">{formatarMembroDesde()}</span>
           </div>
         </div>
-
-        {/* Card de Chamada para Ação */}
-        <div className="bg-orange-50 border border-orange-200 p-4 rounded-[20px] text-center">
-          <p className="text-[12px] font-black text-orange-900">Quer falar com {visitado.nome?.split(" ")[0] || "essa pessoa"}?</p>
-          <p className="text-[11px] mt-1 text-orange-700">Candidate-se em uma vaga ou aguarde a aprovação para liberar o contato direto via WhatsApp.</p>
-        </div>
       </div>
 
-      {/* MODAL PARA EXPANDIR A FOTO DE PERFIL (BORDAS QUADRADAS) */}
+      {/* MODAL PARA EXPANDIR A FOTO DE PERFIL */}
       {fotoExpandida && (
         <div 
           onClick={() => setFotoExpandida(false)}

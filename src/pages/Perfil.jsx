@@ -234,7 +234,7 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
         
         <div className="mt-3 grid grid-cols-[80px_1fr] gap-2">
           <div>
-            <label className="text-[10px] font-medium text-slate-500">ESTADO</label>
+            <label className="text-[10px] font-medium text-slate-500">ESTADO:</label>
             <select 
               value={estadoFeed} 
               onChange={(e)=>handleTrocaEstado(e.target.value)} 
@@ -244,7 +244,7 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
             </select>
           </div>
           <div>
-            <label className="text-[10px] font-medium text-slate-500">CIDADE QUE QUER VER</label>
+            <label className="text-[10px] font-medium text-slate-500">CIDADE:</label>
             <select
               value={cidadeInput}
               onChange={(e)=>setCidadeInput(e.target.value)}
@@ -277,7 +277,7 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
         ) : (
           <div className="mt-3 bg-amber-50 border border-amber-200 p-3 rounded-xl text-center">
             <p className="text-[11px] font-medium text-amber-800">Bio vazia</p>
-            <p className="text-[11px] mt-1 text-amber-700">Bio completa tem 3x mais chance</p>
+            <p className="text-[11px] mt-1 text-amber-700">Bio completa tem 3x mais chance de ser aceito</p>
             <button onClick={onEditar} className="mt-3 bg-slate-900 text-white px-4 py-2 rounded-full text-[11px] font-medium">Adicionar bio</button>
           </div>
         )}

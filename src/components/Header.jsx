@@ -6,13 +6,13 @@ export default function Header({ onPostar, usuario, isAdmin, onAdmin }) {
         <div className="flex items-center gap-2">
           <img 
             src="/icon.jpeg" 
-            alt="DiariasFacil" 
+            alt="Diárias Facil" 
             className="w-8 h-8 rounded-xl shadow-sm object-cover"
           />
           <div className="leading-none">
-            <p className="text-[13px] font-semibold tracking-tight">DiariasFacil</p>
+            <p className="text-[13px] font-semibold tracking-tight">Diárias Fácil</p>
             <p className="text-[10px] text-slate-500 tracking-widest uppercase -mt-0.5">
-              {usuario?.feedCidade || "Sempre uma vaga"} - {usuario?.feedEstado || "perto de você"}
+              {usuario?.feedCidade || "Sempre um negócio"} - {usuario?.feedEstado || "perto de você"}
             </p>
           </div>
         </div>
@@ -31,7 +31,7 @@ export default function Header({ onPostar, usuario, isAdmin, onAdmin }) {
             onClick={onPostar} 
             className="h-8 bg-slate-900 hover:bg-black text-white px-4 rounded-full text-[12px] font-medium tracking-wide transition-colors"
           >
-            Postar vaga
+            Criar vagas
           </button>
         </div>
       </div>

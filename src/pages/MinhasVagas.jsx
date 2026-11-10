@@ -3,14 +3,21 @@ import { db } from "../firebase.js";
 import { useState } from "react";
 import { auth } from "../firebase.js";
 
+const formatarDataLocal = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export default function MinhasVagas({ vagas = [], usuario, onVerPerfil }) {
   const [aprovando, setAprovando] = useState(null);
+  const [imgErros, setImgErros] = useState({});
   const uidAtual = auth.currentUser?.uid || usuario?.uid;
+  const hojeStr = formatarDataLocal(new Date());
 
-  // SEGURANÇA DUPLA: filtra aqui de novo, não confia só no App
   const minhasVagas = vagas.filter(v => {
     if (!uidAtual) return false;
-    // compara uid E email pra garantir
     return v.anuncianteId === uidAtual || v.anuncianteEmail === usuario?.email;
   });
 
@@ -51,9 +58,19 @@ export default function MinhasVagas({ vagas = [], usuario, onVerPerfil }) {
   const reabrirVaga = async (vaga) => {
     if(!confirm("Reabrir essa vaga?")) return;
     await updateDoc(doc(db, "vagas", vaga.id), { fechada: false, status: "aberta", fechadaEm: null });
-  }
+  };
 
-  const abertas = minhasVagas.filter(v => !v.fechada && v.status !== "preenchida");
+  const verificarExpirada = (v) => {
+    if (v.datasEspecificas && v.datasEspecificas.length > 0) {
+      const datasOrdenadas = [...v.datasEspecificas].sort();
+      const ultimaData = datasOrdenadas[datasOrdenadas.length - 1];
+      return ultimaData < hojeStr;
+    }
+    return false;
+  };
+
+  const abertas = minhasVagas.filter(v => !v.fechada && v.status !== "preenchida" && !verificarExpirada(v));
+  const expiradas = minhasVagas.filter(v => !v.fechada && v.status !== "preenchida" && verificarExpirada(v));
   const fechadas = minhasVagas.filter(v => v.fechada || v.status === "preenchida");
 
   return (
@@ -73,88 +90,137 @@ export default function MinhasVagas({ vagas = [], usuario, onVerPerfil }) {
           </div>
         )}
 
-        {abertas.map(v => (
-          <div key={v.id} className="bg-white border border-slate-200 p-4 rounded-2xl">
-            <div className="flex justify-between items-start gap-2">
-              <div>
-                <p className="font-medium text-[14px] leading-tight">{v.titulo}</p>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  {v.cidade} • R$ {v.valor} • {v.candidatos?.filter(c=>c.aprovado).length || 0}/{v.qtd || 1}
-                </p>
+        {/* VAGAS ABERTAS */}
+        {abertas.map(v => {
+          const fotoVaga = v.fotoVaga || v.fotoUrl || "";
+          return (
+            <div key={v.id} className="bg-white border border-slate-200 p-4 rounded-2xl">
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex-1">
+                  <p className="font-medium text-[14px] leading-tight">{v.titulo}</p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {v.cidade} • R$ {v.valor} • {v.candidatos?.filter(c=>c.aprovado).length || 0}/{v.qtd || 1}
+                  </p>
+                </div>
+                <span className="text-[10px] font-medium px-2 py-1 rounded-full bg-slate-50 border border-slate-200">
+                  {v.candidatos?.length || 0} cand.
+                </span>
               </div>
-              <span className="text-[10px] font-medium px-2 py-1 rounded-full bg-slate-50 border border-slate-200">
-                {v.candidatos?.length || 0} cand.
-              </span>
-            </div>
 
-            <div className="mt-4 space-y-2">
-              {(v.candidatos || []).map((c, i) => (
-                <div key={i} className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl">
-                  
-                  {/* ÁREA CLICÁVEL DO CANDIDATO */}
-                  <div 
-                    onClick={() => onVerPerfil && onVerPerfil(c)} 
-                    className="flex items-center gap-2 cursor-pointer group flex-1"
-                    title="Clique para ver o perfil"
-                  >
-                    {c.foto ? (
-                      <img src={c.foto} alt={c.nome} className="w-8 h-8 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-[11px] font-semibold text-slate-700">
-                        {c.nome?.[0]?.toUpperCase()}
+              {/* FOTO DA VAGA */}
+              {fotoVaga && !imgErros[v.id] && (
+                <div className="mt-3 w-full h-40 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                  <img 
+                    src={fotoVaga} 
+                    alt="Foto da vaga" 
+                    onError={() => setImgErros(prev => ({ ...prev, [v.id]: true }))} 
+                    className="w-full h-full object-cover" 
+                  />
+                </div>
+              )}
+
+              <div className="mt-4 space-y-2">
+                {(v.candidatos || []).map((c, i) => (
+                  <div key={i} className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl">
+                    <div 
+                      onClick={() => onVerPerfil && onVerPerfil(c)} 
+                      className="flex items-center gap-2 cursor-pointer group flex-1"
+                      title="Clique para ver o perfil"
+                    >
+                      {c.foto ? (
+                        <img src={c.foto} alt={c.nome} className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-[11px] font-semibold text-slate-700">
+                          {c.nome?.[0]?.toUpperCase()}
+                        </div>
+                      )}
+                      
+                      <div className="flex flex-col">
+                        <span className="font-medium text-[12px] group-hover:text-blue-600 transition">
+                          {c.nome} {c.aprovado && "✓"}
+                        </span>
+                        <span className="text-[9px] text-slate-400 group-hover:underline">
+                          Ver perfil →
+                        </span>
                       </div>
-                    )}
-                    
-                    <div className="flex flex-col">
-                      <span className="font-medium text-[12px] group-hover:text-blue-600 transition">
-                        {c.nome} {c.aprovado && "✓"}
-                      </span>
-                      <span className="text-[9px] text-slate-400 group-hover:underline">
-                        Ver perfil →
-                      </span>
+                    </div>
+
+                    <div>
+                      {!c.aprovado ? (
+                        <button 
+                          onClick={() => aprovarCandidato(v, i)} 
+                          disabled={aprovando === `${v.id}-${i}`} 
+                          className="h-7 bg-slate-900 text-white px-3 rounded-full text-[11px] font-medium disabled:opacity-50 hover:bg-black transition"
+                        >
+                          {aprovando === `${v.id}-${i}` ? "..." : "Aprovar"}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                          Liberado
+                        </span>
+                      )}
                     </div>
                   </div>
-
-                  {/* AÇÕES (APROVAR OU STATUS) */}
-                  <div>
-                    {!c.aprovado ? (
-                      <button 
-                        onClick={() => aprovarCandidato(v, i)} 
-                        disabled={aprovando === `${v.id}-${i}`} 
-                        className="h-7 bg-slate-900 text-white px-3 rounded-full text-[11px] font-medium disabled:opacity-50 hover:bg-black transition"
-                      >
-                        {aprovando === `${v.id}-${i}` ? "..." : "Aprovar"}
-                      </button>
-                    ) : (
-                      <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-                        Liberado
-                      </span>
-                    )}
-                  </div>
-
-                </div>
-              ))}
-              
-              {(!v.candidatos || v.candidatos.length === 0) && (
-                <p className="text-[11px] text-slate-400 bg-slate-50 p-3 rounded-xl text-center border border-dashed">
-                  Ninguém ainda 🔒
-                </p>
-              )}
+                ))}
+                
+                {(!v.candidatos || v.candidatos.length === 0) && (
+                  <p className="text-[11px] text-slate-400 bg-slate-50 p-3 rounded-xl text-center border border-dashed">
+                    Ninguém ainda 🔒
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
+        {/* VAGAS EXPIRADAS / CUJA DATA PASSOU */}
+        {expiradas.length > 0 && (
+          <>
+            <p className="text-[11px] font-medium tracking-widest uppercase text-amber-600 pt-4">Expiradas por data</p>
+            {expiradas.map(v => {
+              const fotoVaga = v.fotoVaga || v.fotoUrl || "";
+              return (
+                <div key={v.id} className="bg-amber-50/50 border border-amber-200 p-4 rounded-2xl">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium text-[13px] text-slate-800">{v.titulo}</p>
+                      <p className="text-[11px] text-amber-700 mt-1">⚠️ A data programada desta vaga já passou e ela foi retirada do feed automaticamente.</p>
+                    </div>
+                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-full">Expirada</span>
+                  </div>
+                  {fotoVaga && !imgErros[v.id] && (
+                    <div className="mt-3 w-full h-32 rounded-xl overflow-hidden border border-amber-200 bg-slate-100 opacity-80">
+                      <img src={fotoVaga} alt="Foto da vaga" onError={() => setImgErros(prev => ({ ...prev, [v.id]: true }))} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {/* VAGAS PREENCHIDAS / FECHADAS */}
         {fechadas.length > 0 && (
           <>
-            <p className="text-[11px] font-medium tracking-widest uppercase text-slate-400 pt-4">Preenchidas</p>
-            {fechadas.map(v => (
-              <div key={v.id} className="bg-white border border-slate-200 p-4 rounded-2xl opacity-75">
-                <p className="font-medium text-[13px]">{v.titulo} <span className="text-emerald-600">✓ Fechada</span></p>
-                <button onClick={() => reabrirVaga(v)} className="mt-3 h-7 bg-white border border-slate-200 px-3 rounded-full text-[11px] hover:bg-slate-50">
-                  Reabrir
-                </button>
-              </div>
-            ))}
+            <p className="text-[11px] font-medium tracking-widest uppercase text-slate-400 pt-4">Preenchidas / Fechadas</p>
+            {fechadas.map(v => {
+              const fotoVaga = v.fotoVaga || v.fotoUrl || "";
+              return (
+                <div key={v.id} className="bg-white border border-slate-200 p-4 rounded-2xl opacity-75">
+                  <div className="flex justify-between items-center">
+                    <p className="font-medium text-[13px]">{v.titulo} <span className="text-emerald-600">✓ Fechada</span></p>
+                    <button onClick={() => reabrirVaga(v)} className="h-7 bg-white border border-slate-200 px-3 rounded-full text-[11px] hover:bg-slate-50">
+                      Reabrir
+                    </button>
+                  </div>
+                  {fotoVaga && !imgErros[v.id] && (
+                    <div className="mt-3 w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                      <img src={fotoVaga} alt="Foto da vaga" onError={() => setImgErros(prev => ({ ...prev, [v.id]: true }))} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </>
         )}
       </div>

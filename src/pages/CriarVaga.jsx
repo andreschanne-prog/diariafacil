@@ -49,13 +49,13 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
   const [salvando, setSalvando] = useState(false);
   const [cidades, setCidades] = useState(CIDADES_FIXAS.MT);
   const [carregandoCidades, setCarregandoCidades] = useState(false);
+  const [fotoUrl, setFotoUrl] = useState("");
   const [mesAtual, setMesAtual] = useState(() => {
     const hoje = new Date();
     return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   });
   const [mostrarCalendario, setMostrarCalendario] = useState(true);
 
-  // DATA DE HOJE LOCAL (SEM BUG DE FUSO)
   const hojeLocal = new Date();
   hojeLocal.setHours(0,0,0,0);
 
@@ -82,6 +82,45 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
     buscarCidades();
   }, [form.estado]);
 
+  const handleSelecionarFoto = (e) => {
+    const arquivo = e.target.files[0];
+    if (!arquivo) return;
+
+    const reader = new FileReader();
+    reader.onload = (evento) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        setFotoUrl(dataUrl);
+      };
+      img.src = evento.target.result;
+    };
+    reader.readAsDataURL(arquivo);
+  };
+
   const toggleDia = (id) => {
     setDiasSelecionados(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
   };
@@ -104,7 +143,9 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
   const postar = async () => {
     if (!form.titulo || !form.cidade || !form.zap) return alert("Preencha título, cidade e zap");
     if (!aCombinar && !form.valor) return alert("Coloca o valor ou marca 'A combinar'");
-    if (diasSelecionados.length === 0 && datasCalendario.length === 0 && !form.data) return alert("Escolhe os dias ou no calendário");
+    if (diasSelecionados.length === 0 && datasCalendario.length === 0) {
+      return alert("Escolha os dias da semana ou selecione datas no calendário.");
+    }
 
     const user = auth.currentUser;
     if(!user?.uid) return alert("Erro: não logado");
@@ -118,6 +159,7 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
         valor: aCombinar ? "A combinar" : `R$ ${form.valor}`,
         valorNumerico: aCombinar ? 0 : Number(form.valor),
         aCombinar,
+        fotoVaga: fotoUrl || "",
         candidatos: [],
         status: "aberta",
         fechada: false,
@@ -128,9 +170,9 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
         anuncianteFoto: user.photoURL || usuario?.foto || "",
         cidade: form.cidade.trim(),
         estado: form.estado,
-        cidadeCompleta: `${form.cidade} - ${form.estado} ${form.bairro ? `- ${form.bairro}` : ""}`.trim(),
+        cidadeCompleta: `${form.cidade} / ${form.estado} ${form.bairro ? `- ${form.bairro}` : ""}`.trim(),
       });
-      alert("Vaga postada!");
+      alert("Vaga postada com sucesso!");
       if (onSucesso) onSucesso();
       if (onVoltar) onVoltar();
     } catch (e) {
@@ -142,11 +184,37 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
   return (
     <div className="p-4 max-w-[600px] mx-auto bg-[#fef9ef] min-h-screen pb-28">
       <button onClick={onVoltar} className="w-10 h-10 bg-white border rounded-full font-bold shadow-sm">←</button>
-      <h2 className="text-3xl font-black mt-6 leading-none">Postar<br/>nova vaga</h2>
-      <p className="text-[11px] opacity-60 mt-2">Hoje é {hojeLocal.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'})} • {auth.currentUser?.email}</p>
+      <h2 className="text-3xl font-black mt-6 leading-none">Criar<br/>oferta de trabalho</h2>
+      <p className="text-[11px] opacity-60 mt-2">Hoje é {hojeLocal.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'})}</p>
       
       <div className="mt-6 space-y-4">
         <input value={form.titulo} onChange={e=>setForm({...form, titulo:e.target.value})} placeholder="Ex: Preciso de 2 diaristas" className="w-full bg-white border p-4 rounded-2xl outline-none text-[14px] font-medium shadow-sm" />
+
+        <div className="bg-white border p-4 rounded-2xl shadow-sm space-y-3">
+          <p className="text-[10px] font-black tracking-widest opacity-40">FOTO DA VAGA (OPCIONAL)</p>
+          
+          {fotoUrl ? (
+            <div className="relative w-full h-48 bg-zinc-100 rounded-xl overflow-hidden border">
+              <img src={fotoUrl} alt="Pré-visualização" className="w-full h-full object-cover" />
+              <button 
+                type="button" 
+                onClick={() => setFotoUrl("")} 
+                className="absolute top-2 right-2 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full font-bold"
+              >
+                Remover / Trocar
+              </button>
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-zinc-300 rounded-xl cursor-pointer bg-zinc-50 hover:bg-zinc-100 transition-all">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                <span className="text-2xl mb-1">📷</span>
+                <p className="text-xs font-bold text-zinc-700">Toque para escolher da galeria ou tirar foto</p>
+                <p className="text-[10px] text-zinc-400 mt-1">Ajuste automático de proporção</p>
+              </div>
+              <input type="file" accept="image/*" onChange={handleSelecionarFoto} className="hidden" />
+            </label>
+          )}
+        </div>
 
         <div className="bg-white border p-3 rounded-2xl shadow-sm space-y-3">
           <p className="text-[10px] font-black tracking-widest opacity-40">ONDE PRECISA?</p>
@@ -201,7 +269,7 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
               </div>
               <div className="flex gap-2 mt-3">
                 <button onClick={()=>{ const hojeStr = formatarDataLocal(hojeLocal); if(!datasCalendario.includes(hojeStr)) setDatasCalendario([...datasCalendario, hojeStr])}} className="flex-1 py-2 bg-amber-100 border border-amber-300 rounded-full text-[11px] font-bold">Hoje {hojeLocal.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}</button>
-                <button onClick={()=>{ const amanha = new Date(hojeLocal); amanha.setDate(amanha.getDate()+1); const str = formatarDataLocal(amanha); if(!datasCalendario.includes(str)) setDatasCalendario([...datasCalendario, str])}} className="flex-1 py-2 bg-zinc-100 border rounded-full text-[11px] font-bold">Amanhã</button>
+                <button onClick={()=>{ const amanha = new Date(hojeLocal); amanha.setDate(amanha.getDate()+1); const str = formatarDataLocal(amanha); if(!datasCalendario.includes(str)) setDatasCalendario([...datasCalendario, str])}} className="flex-1 py-2 bg-zinc-100 border rounded-full text-[11px] font-bold">próximo dia útil</button>
                 <button onClick={()=>setDatasCalendario([])} className="px-3 py-2 bg-white border rounded-full text-[11px]">Limpar</button>
               </div>
               {datasCalendario.length > 0 && (
@@ -213,10 +281,11 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
           )}
 
           <select value={form.periodo} onChange={e=>setForm({...form, periodo:e.target.value})} className="w-full bg-zinc-100 p-3 rounded-xl text-sm font-bold outline-none">
-            <option value="manhã">Manhã (8h-12h)</option>
-            <option value="tarde">Tarde (13h-18h)</option>
-            <option value="dia todo">Dia todo (8h-18h)</option>
-            <option value="noite">Noite</option>
+            <option value="manhã">Vespertino (7h-11h)</option>
+            <option value="tarde">Matutino (13h-17h)</option>
+            <option value="dia todo">Diária inteira (7h-17h)</option>
+            <option value="noite">Noturno</option>
+            <option value="meia diária">Meia diária</option>
           </select>
         </div>
 
@@ -231,10 +300,10 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
           <input value={form.qtd} onChange={e=>setForm({...form, qtd:e.target.value})} type="number" placeholder="Qtd" className="w-[90px] bg-white border p-4 rounded-2xl text-center font-bold shadow-sm" />
         </div>
 
-        <input value={form.zap} onChange={e=>setForm({...form, zap:e.target.value})} placeholder="Zap com DDD - 66999999999" className="w-full bg-white border p-4 rounded-2xl outline-none border-orange-200 shadow-sm" />
+        <input value={form.zap} onChange={e=>setForm({...form, zap:e.target.value})} placeholder="celular com DDD - 6691234-5678" className="w-full bg-white border p-4 rounded-2xl outline-none border-orange-200 shadow-sm" />
         
         <button onClick={postar} disabled={salvando} className="w-full bg-black text-white py-5 rounded-full font-black disabled:opacity-50">
-          {salvando ? "POSTANDO..." : "POSTAR AGORA"}
+          {salvando ? "POSTANDO..." : "POSTAR"}
         </button>
       </div>
     </div>

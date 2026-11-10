@@ -38,7 +38,6 @@ export default function App() {
   const [privacidadeAceita, setPrivacidadeAceita] = useState(false)
   const [anuncioEditando, setAnuncioEditando] = useState(null)
   
-  // Controla se exibe o welcome. Se o usuário nunca viu, começa como true.
   const [showWelcome, setShowWelcome] = useState(() => {
     return !localStorage.getItem("jaViuWelcome_diariafacil");
   })
@@ -226,15 +225,15 @@ export default function App() {
       <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <img src="/icon.jpeg" className="w-6 h-6 rounded-full object-cover" />
-          <p className="text-[12px] font-semibold">diariafacil • Brasil</p>
-          <span className="text-[10px] text-slate-400">© 2025</span>
+          <p className="text-[12px] font-semibold">diariasfacil • Brasil</p>
+          <span className="text-[10px] text-slate-400">© 2026</span>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={()=>irParaTermos("termos")} className="text-[11px] px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full hover:bg-slate-100">Termos de Uso</button>
           <button onClick={()=>irParaTermos("privacidade")} className="text-[11px] px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full hover:bg-slate-100">Privacidade - LGPD</button>
           <button onClick={()=>setShowWelcome(true)} className="text-[11px] px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full hover:bg-slate-100">Como funciona?</button>
         </div>
-        <p className="text-[10px] text-slate-400 leading-snug">Conectamos diaristas e quem precisa em Sinop-MT. Não somos empregador.</p>
+        <p className="text-[10px] text-slate-400 leading-snug">Ideal para: Donas de casa - Empreendedores - Prestadores de serviço - Diaristas</p>
       </div>
     </div>
   )
@@ -257,10 +256,8 @@ export default function App() {
       {tela === "admin" && <Admin onVoltar={()=>setTela("feed")} onAbrirCriarAnuncio={() => { setAnuncioEditando(null); setTela("criarAnuncio") }} onEditarAnuncio={(anuncio) => { setAnuncioEditando(anuncio); setTela("criarAnuncio") }} />}
       {tela === "criarAnuncio" && <CriarAnuncio anuncioParaEditar={anuncioEditando} onVoltar={()=>setTela("admin")} />}
       
-      {/* TELA DE EXCLUIR CONTA */}
       {tela === "deletar" && <DeletarConta />}
 
-      {/* TELA DE PERFIL */}
       {tela === "perfil" && (
         <>
           <Perfil 
