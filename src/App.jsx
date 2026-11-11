@@ -10,6 +10,7 @@ import Perfil from "./pages/Perfil"
 import Cadastro from "./pages/Cadastro"
 import EditarPerfil from "./pages/EditarPerfil"
 import Login from "./pages/Login"
+import RecuperarSenha from "./components/RecuperarSenha"
 import MinhasVagas from "./pages/MinhasVagas"
 import VagasAceitas from "./pages/VagasAceitas"
 import PerfilVisitante from "./pages/PerfilVisitante"
@@ -27,6 +28,7 @@ export default function App() {
   const [carregandoAuth, setCarregandoAuth] = useState(true)
   const [precisaCompletarCadastro, setPrecisaCompletarCadastro] = useState(false)
   const [mostrarCadastro, setMostrarCadastro] = useState(false)
+  const [mostrarRecuperar, setMostrarRecuperar] = useState(false)
   const [usuario, setUsuario] = useState(null)
   const [vagas, setVagas] = useState([])
   const [anuncios, setAnuncios] = useState([])
@@ -62,6 +64,7 @@ export default function App() {
           }
           setLogado(true)
           setMostrarCadastro(false)
+          setMostrarRecuperar(false)
         } else {
           setLogado(false)
           setUsuario(null)
@@ -186,8 +189,13 @@ export default function App() {
   if (tela === "privacidade") { return <Privacidade onVoltar={() => setTela(telaAnterior)} onAceitar={() => { setPrivacidadeAceita(true); setTela(telaAnterior); }} /> }
   
   if (!logado) {
-    if(mostrarCadastro){ return <Cadastro onEntrar={(dados)=>{ setUsuario({...usuario, ...dados}); setMostrarCadastro(false); }} onVoltar={()=>setMostrarCadastro(false)} usuarioInicial={null} onVerTermos={()=>irParaTermos("termos")} onVerPrivacidade={()=>irParaTermos("privacidade")} termosJaAceito={termosAceito} privacidadeJaAceita={privacidadeAceita} /> }
-    return <Login onLogin={()=>{}} onCadastro={()=>setMostrarCadastro(true)} />
+    if(mostrarCadastro){ 
+      return <Cadastro onEntrar={(dados)=>{ setUsuario({...usuario, ...dados}); setMostrarCadastro(false); }} onVoltar={()=>setMostrarCadastro(false)} usuarioInicial={null} onVerTermos={()=>irParaTermos("termos")} onVerPrivacidade={()=>irParaTermos("privacidade")} termosJaAceito={termosAceito} privacidadeJaAceita={privacidadeAceita} /> 
+    }
+    if(mostrarRecuperar){ 
+      return <RecuperarSenha onVoltar={()=>setMostrarRecuperar(false)} /> 
+    }
+    return <Login onLogin={()=>{}} onCadastro={()=>setMostrarCadastro(true)} onEsqueceuSenha={()=>setMostrarRecuperar(true)} />
   }
   
   if(precisaCompletarCadastro){ return <Cadastro onEntrar={(dados)=>{ setUsuario({...usuario, ...dados}); setPrecisaCompletarCadastro(false); setTela("feed") }} usuarioInicial={usuario} onVerTermos={()=>irParaTermos("termos")} onVerPrivacidade={()=>irParaTermos("privacidade")} termosJaAceito={termosAceito} privacidadeJaAceita={privacidadeAceita} /> }
