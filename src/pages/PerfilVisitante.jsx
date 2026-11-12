@@ -56,7 +56,7 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
     return () => unsub()
   }, [usuarioId, visitado?.uid])
 
-  // Formata "Maria Silva" -> "Maria S." para credibilidade com privacidade
+  // Formata "Maria Silva" -> "Maria S." para credibilidade com privacidade (Erro corrigido aqui)
   const formatarNomeAvaliador = (nomeCompleto) => {
     if (!nomeCompleto) return "Usuário"
     const partes = nomeCompleto.trim().split(" ")

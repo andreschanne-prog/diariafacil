@@ -22,6 +22,8 @@ export default function BannerTopo() {
         } catch { return true }
       })
       setBanners(lista)
+    }, (err) => {
+      console.log("Erro ao buscar banners:", err)
     })
     return () => unsub()
   }, [])
@@ -40,9 +42,8 @@ export default function BannerTopo() {
   // TIPO GOOGLE ADSENSE
   if (banner.tipo === "adsense") {
     return (
-      <div className="w-full bg-white border-b border-slate-200 flex justify-center py-1">
+      <div className="w-full bg-white border-b border-slate-200 flex justify-center py-1 sticky top-0 z-30 shadow-sm">
         <div className="w-full max-w-[640px]">
-          {/* COLE SEU CÓDIGO DO GOOGLE AQUI - EXEMPLO ABAIXO */}
           <div className="text-center">
             <p className="text-[8px] tracking-widest text-slate-400">PUBLICIDADE</p>
             <div
@@ -55,25 +56,46 @@ export default function BannerTopo() {
     )
   }
 
+  // Opções de ajuste que você pode salvar no Firestore ou alterar direto aqui:
+  // "cover" = Preenche todo o espaço cortando as bordas se necessário (Recomendado para banners 1200x200)
+  // "contain" = Mostra a imagem inteira sem cortes (pode mostrar fundo preto nas laterais/cima)
+  // "fill" = Estica a imagem para preencher tudo
+  const modoAjuste = banner.objectFit || banner.modoExibicao || "cover" // cover, contain ou fill
+  const alturaBanner = banner.altura || "h-[110px] sm:h-[130px]" // Altura customizável por banner ou padrão
+
+  const classeAjuste = modoAjuste === "contain" 
+    ? "object-contain" 
+    : modoAjuste === "fill" 
+    ? "object-fill" 
+    : "object-cover"
+
   // TIPO IMAGEM (SEU ANÚNCIO)
   return (
-    <div className="w-full bg-white border-b border-slate-200 sticky top-0 z-30">
-      <div className="max-w-[640px] mx-auto relative">
-        <a href={banner.link || "#"} target="_blank" rel="noopener noreferrer" className="block">
+    <div className="w-full bg-black border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+      <div className="max-w-[640px] mx-auto relative overflow-hidden">
+        <a href={banner.link || "#"} target="_blank" rel="noopener noreferrer" className="block w-full">
           <img
             src={banner.imagem}
-            alt={banner.titulo}
-            className="w-full h-auto max-h-[120px] object-contain mx-auto bg-black"
+            alt={banner.titulo || "Anúncio"}
+            className={`w-full ${alturaBanner} ${classeAjuste} mx-auto transition-all duration-500`}
           />
         </a>
+
+        {/* Indicadores de carrossel */}
         {banners.length > 1 && (
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
+          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 z-10 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
             {banners.map((_, i) => (
-              <div key={i} className={`w-1 h-1 rounded-full ${i === index ? "bg-white" : "bg-white/50"}`} />
+              <div 
+                key={i} 
+                className={`transition-all rounded-full ${i === index ? "w-3 h-1 bg-white" : "w-1 h-1 bg-white/50"}`} 
+              />
             ))}
           </div>
         )}
-        <span className="absolute top-1 left-2 text-[8px] bg-black/60 text-white px-1.5 py-0.5 rounded">ANÚNCIO</span>
+
+        <span className="absolute top-1 left-2 text-[8px] font-bold tracking-wider bg-black/70 text-white px-1.5 py-0.5 rounded shadow">
+          ANÚNCIO
+        </span>
       </div>
     </div>
   )

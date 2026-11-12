@@ -86,7 +86,6 @@ export default function App() {
     return () => unsub()
   }, [])
 
-  // Configuração de Notificações Web Push (Firebase Cloud Messaging)
   useEffect(() => {
     if (!logado || !usuario?.uid) return;
     if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) return;
@@ -211,12 +210,14 @@ export default function App() {
       setVisitanteId(vagaOuUsuario)
       setVisitanteData(null)
     } else {
-      setVisitanteId(vagaOuUsuario.uid || vagaOuUsuario.anuncianteId)
+      setVisitanteId(vagaOuUsuario.uid || vagaOuUsuario.anuncianteId || vagaOuUsuario.id)
       setVisitanteData({
-        uid: vagaOuUsuario.uid || vagaOuUsuario.anuncianteId,
+        uid: vagaOuUsuario.uid || vagaOuUsuario.anuncianteId || vagaOuUsuario.id,
         nome: vagaOuUsuario.nome || vagaOuUsuario.anuncianteNome,
         foto: vagaOuUsuario.foto || vagaOuUsuario.anuncianteFoto,
         cidade: vagaOuUsuario.cidade,
+        estado: vagaOuUsuario.estado,
+        email: vagaOuUsuario.email,
         sobre: vagaOuUsuario.sobre || vagaOuUsuario.anuncianteSobre
       })
     }
@@ -316,7 +317,14 @@ export default function App() {
           onVoltar={()=>setTela(telaAnterior)} 
         />
       )}
-      {tela === "admin" && <Admin onVoltar={()=>setTela("feed")} onAbrirCriarAnuncio={() => { setAnuncioEditando(null); setTela("criarAnuncio") }} onEditarAnuncio={(anuncio) => { setAnuncioEditando(anuncio); setTela("criarAnuncio") }} />}
+      {tela === "admin" && (
+        <Admin 
+          onVoltar={()=>setTela("feed")} 
+          onAbrirCriarAnuncio={() => { setAnuncioEditando(null); setTela("criarAnuncio") }} 
+          onEditarAnuncio={(anuncio) => { setAnuncioEditando(anuncio); setTela("criarAnuncio") }} 
+          onVerPerfil={abrirPerfilVisitante}
+        />
+      )}
       {tela === "criarAnuncio" && <CriarAnuncio anuncioParaEditar={anuncioEditando} onVoltar={()=>setTela("admin")} />}
       
       {tela === "deletar" && <DeletarConta />}

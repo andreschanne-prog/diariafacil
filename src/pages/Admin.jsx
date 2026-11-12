@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react"
 import { collection, getDocs, doc, deleteDoc, updateDoc, query, orderBy, onSnapshot, addDoc, serverTimestamp, Timestamp } from "firebase/firestore"
 import { db } from "../firebase.js"
+import Estatisticas from "../components/Estatisticas" // Importando o componente de estatísticas
 
-export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, onVerRelatorio }) {
+export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, onVerRelatorio, onVerPerfil }) {
   const [vagas, setVagas] = useState([])
-  const [usuarios, setUsuarios] = useState([])
   const [denuncias, setDenuncias] = useState([])
   const [anuncios, setAnuncios] = useState([])
   const [bannersTopo, setBannersTopo] = useState([])
-  const [contasDeletadas, setContasDeletadas] = useState([]) // Novo estado para as contas deletadas
+  const [contasDeletadas, setContasDeletadas] = useState([])
   const [aba, setAba] = useState("anuncios")
   const [filtroCidade, setFiltroCidade] = useState("todos")
   const [buscaAnuncio, setBuscaAnuncio] = useState("")
+  const [menuAberto, setMenuAberto] = useState(false)
 
   // --- FORM BANNER TOPO ---
   const [showCriarTopo, setShowCriarTopo] = useState(false)
@@ -27,8 +28,6 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
       const qVagas = query(collection(db, "vagas"), orderBy("criadoEm", "desc"))
       const snapVagas = await getDocs(qVagas)
       setVagas(snapVagas.docs.map(d => ({ id: d.id, ...d.data() })))
-      const snapUsers = await getDocs(collection(db, "usuarios"))
-      setUsuarios(snapUsers.docs.map(d => ({ id: d.id, ...d.data() })))
     }
     carregar()
 
@@ -41,7 +40,6 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
     const qTopo = query(collection(db, "banners_topo"), orderBy("criadoEm", "desc"))
     const unsubTopo = onSnapshot(qTopo, snap => setBannersTopo(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
 
-    // Escuta em tempo real a coleção de contas deletadas e motivos
     const qDel = query(collection(db, "account_deletions"), orderBy("deletedAt", "desc"))
     const unsubDel = onSnapshot(qDel, snap => setContasDeletadas(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
 
@@ -51,8 +49,6 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
   const toggleAnuncio = async (a) => { await updateDoc(doc(db, "anuncios", a.id), { ativo: !a.ativo }) }
   const toggleTopo = async (b) => { await updateDoc(doc(db, "banners_topo", b.id), { ativo: !b.ativo }) }
   const deletarVaga = async (id) => { if (!confirm("Deletar?")) return; await deleteDoc(doc(db, "vagas", id)); setVagas(v => v.filter(x => x.id !== id)) }
-  const banirUsuario = async (id) => { if (!confirm("Banir?")) return; await updateDoc(doc(db, "usuarios", id), { banido: true }); setUsuarios(u => u.map(x => x.id === id ? { ...x, banido: true } : x)) }
-  const desbanirUsuario = async (id) => { await updateDoc(doc(db, "usuarios", id), { banido: false }); setUsuarios(u => u.map(x => x.id === id ? { ...x, banido: false } : x)) }
   const pendentes = denuncias.filter(d => d.status === "pendente").length
 
   const copiarRelatorio = (a) => {
@@ -120,39 +116,100 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
   const totalCliques = anunciosFiltrados.reduce((acc, a) => acc + (a.cliques || 0), 0)
   const ctrMedio = totalImp ? ((totalCliques / totalImp) * 100).toFixed(1) : 0
 
+  // Nomes amigáveis para o menu atual
+  const titulosAbas = {
+    anuncios: `💰 Anúncios (${anuncios.length})`,
+    topo: `🔝 Topo (${bannersTopo.length})`,
+    contasDeletadas: `🗑️ Contas Deletadas (${contasDeletadas.length})`,
+    denuncias: `🚨 Denúncias (${pendentes})`,
+    vagas: `📋 Vagas (${vagas.length})`,
+    estatisticas: `📊 Estatísticas`
+  }
+
+  // Se a aba selecionada for estatísticas, renderiza o componente dedicado repassando onVerPerfil
+  if (aba === "estatisticas") {
+    return <Estatisticas onVoltar={() => setAba("anuncios")} onVerPerfil={onVerPerfil} />
+  }
+
   return (
     <div className="max-w-[700px] mx-auto min-h-screen bg-[#fef9ef] pb-24">
-      <div className="bg-black text-white p-6 sticky top-0 z-10 flex items-center gap-4">
-        <button onClick={onVoltar} className="w-10 h-10 bg-white text-black rounded-full font-bold">←</button>
-        <div>
-          <h2 className="font-black leading-none">👑 PAINEL ADM</h2>
-          <p className="text-[10px] opacity-60 mt-1">{pendentes} denúncias • {anuncios.length} anúncios • {contasDeletadas.length} contas saíram • {totalImp} views</p>
+      {/* TOPO FIXO REESTRUTURADO COM MENU HAMBÚRGUER */}
+      <div className="bg-black text-white p-4 sticky top-0 z-20 flex items-center justify-between shadow-md">
+        <div className="flex items-center gap-3">
+          <button onClick={onVoltar} className="w-9 h-9 bg-white text-black rounded-full font-bold flex items-center justify-center text-sm shadow">←</button>
+          <div>
+            <h2 className="font-black text-[15px] tracking-wide leading-none">👑 PAINEL ADM</h2>
+            <p className="text-[10px] opacity-60 mt-1">
+              {titulosAbas[aba]} • {totalImp} views
+            </p>
+          </div>
+        </div>
+
+        {/* BOTÃO DE TRÊS TRAÇOS (MENU SUSPENSO) */}
+        <div className="relative">
+          <button 
+            onClick={() => setMenuAberto(!menuAberto)} 
+            className="w-10 h-10 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl flex flex-col items-center justify-center gap-1 transition"
+            title="Menu de navegação"
+          >
+            <div className="w-4 h-[2px] bg-white rounded-full"></div>
+            <div className="w-4 h-[2px] bg-white rounded-full"></div>
+            <div className="w-4 h-[2px] bg-white rounded-full"></div>
+          </button>
+
+          {/* DROPDOWN MENU */}
+          {menuAberto && (
+            <>
+              <div onClick={() => setMenuAberto(false)} className="fixed inset-0 z-30"></div>
+              <div className="absolute right-0 top-12 w-60 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-40 text-slate-900 overflow-hidden">
+                <div className="px-4 py-2 border-b border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Navegação do Painel</p>
+                </div>
+                <button onClick={()=>{setAba("anuncios"); setMenuAberto(false)}} className={`w-full text-left px-4 py-3 text-[12px] font-bold flex items-center justify-between hover:bg-slate-50 ${aba==="anuncios"?"text-black bg-slate-100":""}`}>
+                  <span>💰 Anúncios</span>
+                  <span className="text-[10px] bg-slate-200 px-2 py-0.5 rounded-full">{anuncios.length}</span>
+                </button>
+                <button onClick={()=>{setAba("topo"); setMenuAberto(false)}} className={`w-full text-left px-4 py-3 text-[12px] font-bold flex items-center justify-between hover:bg-slate-50 ${aba==="topo"?"text-blue-600 bg-blue-50":""}`}>
+                  <span>🔝 Banners Topo</span>
+                  <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{bannersTopo.length}</span>
+                </button>
+                <button onClick={()=>{setAba("estatisticas"); setMenuAberto(false)}} className={`w-full text-left px-4 py-3 text-[12px] font-bold flex items-center justify-between hover:bg-slate-50 ${aba==="estatisticas"?"text-emerald-700 bg-emerald-50":""}`}>
+                  <span>📊 Estatísticas</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Gráficos</span>
+                </button>
+                <button onClick={()=>{setAba("contasDeletadas"); setMenuAberto(false)}} className={`w-full text-left px-4 py-3 text-[12px] font-bold flex items-center justify-between hover:bg-slate-50 ${aba==="contasDeletadas"?"text-red-700 bg-red-50":""}`}>
+                  <span>🗑️ Contas Deletadas</span>
+                  <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{contasDeletadas.length}</span>
+                </button>
+                <button onClick={()=>{setAba("denuncias"); setMenuAberto(false)}} className={`w-full text-left px-4 py-3 text-[12px] font-bold flex items-center justify-between hover:bg-slate-50 ${aba==="denuncias"?"text-red-600 bg-red-50":""}`}>
+                  <span>🚨 Denúncias</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${pendentes > 0 ? 'bg-red-600 text-white font-black animate-pulse' : 'bg-slate-200'}`}>{pendentes}</span>
+                </button>
+                <button onClick={()=>{setAba("vagas"); setMenuAberto(false)}} className={`w-full text-left px-4 py-3 text-[12px] font-bold flex items-center justify-between hover:bg-slate-50 ${aba==="vagas"?"text-black bg-slate-100":""}`}>
+                  <span>📋 Vagas Ativas</span>
+                  <span className="text-[10px] bg-slate-200 px-2 py-0.5 rounded-full">{vagas.length}</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="p-4 flex gap-2 overflow-x-auto">
-        <button onClick={()=>setAba("anuncios")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="anuncios" ? "bg-slate-900 text-white" : "bg-white border"}`}>💰 ANÚNCIOS ({anuncios.length})</button>
-        <button onClick={()=>setAba("topo")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="topo" ? "bg-blue-600 text-white" : "bg-white border"}`}>🔝 TOPO ({bannersTopo.length})</button>
-        <button onClick={()=>setAba("contasDeletadas")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="contasDeletadas" ? "bg-red-700 text-white" : "bg-white border"}`}>🗑️ CONTAS DELETADAS ({contasDeletadas.length})</button>
-        <button onClick={()=>setAba("denuncias")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="denuncias" ? "bg-red-600 text-white" : "bg-white border"}`}>🚨 DENÚNCIAS ({pendentes})</button>
-        <button onClick={()=>setAba("vagas")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="vagas" ? "bg-black text-white" : "bg-white border"}`}>VAGAS ({vagas.length})</button>
-        <button onClick={()=>setAba("users")} className={`px-4 py-2 rounded-full font-black text-[11px] shrink-0 ${aba==="users" ? "bg-black text-white" : "bg-white border"}`}>USUÁRIOS ({usuarios.length})</button>
-      </div>
-
+      {/* CONTEÚDO PRINCIPAL DAS ABAS */}
       <div className="p-4 space-y-3">
         {aba === "anuncios" && (
           <>
-            <button onClick={onAbrirCriarAnuncio} className="w-full h-14 bg-slate-900 text-white rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2">
+            <button onClick={onAbrirCriarAnuncio} className="w-full h-14 bg-slate-900 text-white rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2 shadow-sm hover:bg-black transition">
               + CRIAR NOVO ANÚNCIO
             </button>
             <div className="grid grid-cols-3 gap-2">
-              <div className="bg-white border rounded-2xl p-3 text-center"><p className="text-[9px] text-slate-400 tracking-widest">IMPRESSÕES</p><p className="text-[18px] font-black">{totalImp}</p><p className="text-[9px] text-slate-400">pessoas viram</p></div>
-              <div className="bg-white border rounded-2xl p-3 text-center"><p className="text-[9px] text-slate-400 tracking-widest">CLIQUES</p><p className="text-[18px] font-black">{totalCliques}</p><p className="text-[9px] text-emerald-600">interessados</p></div>
-              <div className="bg-slate-900 text-white border rounded-2xl p-3 text-center"><p className="text-[9px] text-slate-300 tracking-widest">CTR</p><p className="text-[18px] font-black">{ctrMedio}%</p><p className="text-[9px] text-slate-300">taxa clique</p></div>
+              <div className="bg-white border rounded-2xl p-3 text-center shadow-xs"><p className="text-[9px] text-slate-400 tracking-widest">IMPRESSÕES</p><p className="text-[18px] font-black">{totalImp}</p><p className="text-[9px] text-slate-400">pessoas viram</p></div>
+              <div className="bg-white border rounded-2xl p-3 text-center shadow-xs"><p className="text-[9px] text-slate-400 tracking-widest">CLIQUES</p><p className="text-[18px] font-black">{totalCliques}</p><p className="text-[9px] text-emerald-600">interessados</p></div>
+              <div className="bg-slate-900 text-white border rounded-2xl p-3 text-center shadow-xs"><p className="text-[9px] text-slate-300 tracking-widest">CTR</p><p className="text-[18px] font-black">{ctrMedio}%</p><p className="text-[9px] text-slate-300">taxa clique</p></div>
             </div>
             <div className="bg-white border rounded-2xl p-3 flex gap-2">
-              <input value={buscaAnuncio} onChange={e=>setBuscaAnuncio(e.target.value)} placeholder="Buscar empresa..." className="flex-1 border rounded-full px-4 py-2 text-[12px]" />
-              <select value={filtroCidade} onChange={e=>setFiltroCidade(e.target.value)} className="border rounded-full px-3 py-2 text-[12px]">
+              <input value={buscaAnuncio} onChange={e=>setBuscaAnuncio(e.target.value)} placeholder="Buscar empresa..." className="flex-1 border rounded-full px-4 py-2 text-[12px] outline-none focus:border-slate-900" />
+              <select value={filtroCidade} onChange={e=>setFiltroCidade(e.target.value)} className="border rounded-full px-3 py-2 text-[12px] outline-none bg-white">
                 {cidades.map(c=> <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
@@ -177,7 +234,7 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
                       </div>
                     </div>
                   </div>
-                  <div className="px-3 pb-3 flex gap-1.5">
+                  <div className="px-3 pb-3 flex gap-1.5 flex-wrap">
                     <button onClick={()=>copiarRelatorio(a)} className="flex-1 h-8 bg-slate-900 text-white rounded-full text-[10px] font-bold">📋 RELATÓRIO</button>
                     <button onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent(`📊 Seu anúncio na DiariaFacil:\n${a.titulo}\n👀 ${a.impressoes||0} pessoas viram\n👆 ${a.cliques||0} cliques\n📈 CTR ${ctr}%\n\ndiariafacil`)}`,'_blank')} className="flex-1 h-8 bg-emerald-600 text-white rounded-full text-[10px] font-bold">WHATSAPP</button>
                     <button onClick={()=>toggleAnuncio(a)} className="h-8 px-3 border rounded-full text-[10px] font-bold">{a.ativo ? 'Pausar' : 'Ativar'}</button>
@@ -194,7 +251,7 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
           <>
             {!showCriarTopo ? (
               <>
-                <button onClick={()=>setShowCriarTopo(true)} className="w-full h-14 bg-blue-600 text-white rounded-2xl font-bold text-[13px]">+ CRIAR BANNER DO TOPO</button>
+                <button onClick={()=>setShowCriarTopo(true)} className="w-full h-14 bg-blue-600 text-white rounded-2xl font-bold text-[13px] shadow-sm">+ CRIAR BANNER DO TOPO</button>
                 <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-[11px] text-blue-800">
                   🔝 Esse banner aparece fixo no topo do feed pra todo mundo. Ideal pro Google AdSense e pra vender espaço caro.
                 </div>
@@ -255,7 +312,7 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
                   <>
                     <textarea value={codigoAdsense} onChange={e=>setCodigoAdsense(e.target.value)} placeholder="Cole aqui o código completo do Google AdSense" rows={6} className="w-full border rounded-xl p-3 text-[11px] font-mono" />
                     <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-[11px]">
-                      Você pega esse código em adsense.google.com depois que seu site diariafacil.vercel.app for aprovado.
+                      Você pega esse código em adsense.google.com depois que seu site for aprovado.
                     </div>
                     <input value={tituloTopo} onChange={e=>setTituloTopo(e.target.value)} placeholder="Nome interno (ex: Ads Topo)" className="w-full border rounded-xl p-3 text-[13px]" />
                   </>
@@ -310,9 +367,8 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
           </div>
         )}
 
-        {aba === "denuncias" && denuncias.map(d => (<div key={d.id} className="p-4 rounded-xl border bg-white"><p className="font-bold text-sm">{d.vagaTitulo}</p><p className="text-[11px] mt-1">{d.motivo}</p></div>))}
-        {aba === "vagas" && vagas.map(v => (<div key={v.id} className="bg-white p-4 rounded-xl border flex justify-between"><p className="font-bold text-sm truncate flex-1">{v.titulo}</p><button onClick={()=>deletarVaga(v.id)} className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-bold ml-2">DELETAR</button></div>))}
-        {aba === "users" && usuarios.map(u => (<div key={u.id} className="bg-white p-4 rounded-xl border flex justify-between items-center"><p className="font-bold text-sm truncate">{u.nome}</p><button onClick={()=>u.banido ? desbanirUsuario(u.id) : banirUsuario(u.id)} className="bg-black text-white px-3 py-1 rounded-full text-[10px] font-bold">{u.banido ? "DESBANIR" : "BANIR"}</button></div>))}
+        {aba === "denuncias" && denuncias.map(d => (<div key={d.id} className="p-4 rounded-xl border bg-white shadow-xs"><p className="font-bold text-sm">{d.vagaTitulo}</p><p className="text-[11px] mt-1 text-slate-600">{d.motivo}</p></div>))}
+        {aba === "vagas" && vagas.map(v => (<div key={v.id} className="bg-white p-4 rounded-xl border flex justify-between items-center shadow-xs"><p className="font-bold text-sm truncate flex-1">{v.titulo}</p><button onClick={()=>deletarVaga(v.id)} className="bg-red-600 text-white px-3 py-1.5 rounded-full text-[10px] font-bold ml-2">DELETAR</button></div>))}
       </div>
     </div>
   )
