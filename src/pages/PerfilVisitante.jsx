@@ -56,7 +56,7 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
     return () => unsub()
   }, [usuarioId, visitado?.uid])
 
-  // Formata "Maria Silva" -> "Maria S." para credibilidade com privacidade (Erro corrigido aqui)
+  // Formata "Maria Silva" -> "Maria S." com segurança (Erro de sintaxe corrigido)
   const formatarNomeAvaliador = (nomeCompleto) => {
     if (!nomeCompleto) return "Usuário"
     const partes = nomeCompleto.trim().split(" ")
@@ -132,11 +132,11 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
         <div className="bg-white p-6 rounded-[24px] border flex gap-4 items-center shadow-sm">
           <div 
             onClick={() => visitado.foto && setFotoExpandida(true)}
-            className={`w-16 h-16 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-xl overflow-hidden shrink-0 ${visitado.foto ? 'cursor-pointer hover:opacity-95 transition' : ''}`}
+            className={`w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-xl overflow-hidden shrink-0 shadow-sm ${visitado.foto ? 'cursor-pointer hover:opacity-95 transition' : ''}`}
             title={visitado.foto ? "Clique para ampliar" : ""}
           >
             {visitado.foto ? (
-              <img src={visitado.foto} className="w-full h-full object-cover rounded-xl" alt={visitado.nome} />
+              <img src={visitado.foto} className="w-full h-full object-cover rounded-2xl" alt={visitado.nome} />
             ) : (
               visitado.nome?.[0]?.toUpperCase() || "U"
             )}
@@ -148,7 +148,7 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
             <p className="text-[13px] mt-1 text-slate-500 truncate">
               📍 {visitado.cidade || visitado.local || "Sinop - MT"} {visitado.bairro ? `• ${visitado.bairro}` : ""}
             </p>
-            <span className="inline-block mt-2 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+            <span className="inline-block mt-2 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full">
               ✓ Usuário Verificado
             </span>
           </div>
@@ -207,9 +207,9 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       {item.avaliadorFoto ? (
-                        <img src={item.avaliadorFoto} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        <img src={item.avaliadorFoto} alt="" className="w-6 h-6 rounded-full object-cover shadow-xs" />
                       ) : (
-                        <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 text-[9px] font-bold flex items-center justify-center">
+                        <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold flex items-center justify-center">
                           {(item.avaliadorNome || "U")[0].toUpperCase()}
                         </div>
                       )}
@@ -290,23 +290,23 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
         </div>
       </div>
 
-      {/* MODAL PARA EXPANDIR A FOTO DE PERFIL */}
+      {/* MODAL PARA EXPANDIR A FOTO DE PERFIL EM ALTA RESOLUÇÃO */}
       {fotoExpandida && (
         <div 
           onClick={() => setFotoExpandida(false)}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4"
         >
-          <div className="relative max-w-[90%] max-h-[90%]">
+          <div className="relative max-w-[95%] max-h-[95%] flex items-center justify-center">
             <button 
               onClick={() => setFotoExpandida(false)}
-              className="absolute -top-10 right-0 w-8 h-8 bg-white/20 text-white rounded-full flex items-center justify-center font-bold text-sm hover:bg-white/40 transition"
+              className="absolute -top-12 right-0 w-9 h-9 bg-white/20 text-white rounded-full flex items-center justify-center font-bold text-base hover:bg-white/40 transition shadow-lg"
             >
               ✕
             </button>
             <img 
               src={visitado.foto} 
               alt="Foto ampliada" 
-              className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10" 
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10" 
             />
           </div>
         </div>
