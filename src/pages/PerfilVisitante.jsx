@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { doc, getDoc } from "firebase/firestore"
+import { doc, getDoc, collection, onSnapshot, query, where } from "firebase/firestore"
 import { db } from "../firebase.js"
 import Avaliacao from "../components/Avaliacao"
 
@@ -8,6 +8,7 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
   const [carregando, setCarregando] = useState(!usuarioData)
   const [mostrarModalAvaliar, setMostrarModalAvaliar] = useState(false)
   const [fotoExpandida, setFotoExpandida] = useState(false)
+  const [comentarios, setComentarios] = useState([])
 
   useEffect(() => {
     if (usuarioData?.email || usuarioData?.bio || usuarioData?.sobre || usuarioData?.idade) {
@@ -33,6 +34,36 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
     buscar()
   }, [usuarioId, usuarioData])
 
+  // Busca as avaliações na coleção "avaliacoes" onde prestadorId == idAlvo
+  useEffect(() => {
+    const idAlvo = usuarioId || visitado?.uid
+    if (!idAlvo) return
+
+    const q = query(collection(db, "avaliacoes"), where("prestadorId", "==", idAlvo))
+    const unsub = onSnapshot(q, (snapshot) => {
+      const lista = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+      // Ordena do mais recente para o mais antigo no próprio front-end (evita erro de índice no Firebase)
+      lista.sort((a, b) => {
+        const dataA = a.criadoEm?.toMillis ? a.criadoEm.toMillis() : 0
+        const dataB = b.criadoEm?.toMillis ? b.criadoEm.toMillis() : 0
+        return dataB - dataA
+      })
+      setComentarios(lista)
+    }, (err) => {
+      console.log("Erro ao carregar avaliações:", err)
+    })
+
+    return () => unsub()
+  }, [usuarioId, visitado?.uid])
+
+  // Formata "Maria Silva" -> "Maria S." para credibilidade com privacidade
+  const formatarNomeAvaliador = (nomeCompleto) => {
+    if (!nomeCompleto) return "Usuário"
+    const partes = nomeCompleto.trim().split(" ")
+    if (partes.length === 1) return partes[0]
+    return `${partes[0]} ${partes[partes.length - 1][0].toUpperCase()}.`
+  }
+
   const calcularIdade = () => {
     const data = visitado?.idade || visitado?.dataNascimento || visitado?.nascimento
     if (!data) return null
@@ -47,9 +78,9 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
   const idade = calcularIdade()
   const bio = visitado?.sobre || visitado?.bio || visitado?.experiencias || visitado?.descricao
   
-  // Cálculo de avaliação real
-  const totalAval = visitado?.totalAvaliacoes || 0
-  const notaMedia = totalAval > 0 ? ((visitado?.sumNotas || 0) / totalAval).toFixed(1) : "5.0"
+  const totalAval = comentarios.length > 0 ? comentarios.length : (visitado?.totalAvaliacoes || 0)
+  const somaNotas = comentarios.length > 0 ? comentarios.reduce((acc, curr) => acc + (Number(curr.nota) || 5), 0) : (visitado?.sumNotas || 0)
+  const notaMedia = totalAval > 0 ? (somaNotas / totalAval).toFixed(1) : "5.0"
 
   const formatarMembroDesde = () => {
     try {
@@ -59,7 +90,6 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
     return "Recentemente"
   }
 
-  // Obter o WhatsApp ou telefone cadastrado
   const contatoZap = visitado?.zap || visitado?.whatsapp || visitado?.telefone || visitado?.celular || ""
   const limparZap = contatoZap.replace(/\D/g, '')
 
@@ -89,7 +119,6 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
           <h2 className="font-black text-[16px]">Perfil do Usuário</h2>
         </div>
 
-        {/* Botão de Avaliar no Cabeçalho */}
         <button 
           onClick={() => setMostrarModalAvaliar(true)}
           className="h-9 px-4 bg-slate-900 text-white rounded-full text-[11px] font-bold hover:bg-black transition flex items-center gap-1.5"
@@ -150,23 +179,72 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
           )}
         </div>
 
-        {/* Avaliações com Ação */}
-        <div className="bg-white p-5 rounded-[24px] border shadow-sm">
+        {/* Avaliações e Comentários */}
+        <div className="bg-white p-5 rounded-[24px] border shadow-sm space-y-4">
           <div className="flex justify-between items-center">
-            <span className="font-bold text-[14px]">⭐ Avaliações</span>
-            <span className="font-black text-[14px]">{notaMedia} / 5.0</span>
-          </div>
-          <div className="mt-3 flex items-center justify-between">
+            <span className="font-bold text-[14px]">⭐ Avaliações e Comentários</span>
             <div className="flex items-center gap-1">
-              {[1,2,3,4,5].map(i => <span key={i} className="text-yellow-500 text-sm">★</span>)}
-              <span className="text-[11px] text-slate-500 ml-2">({totalAval} avaliações)</span>
+              <span className="text-yellow-500 text-sm font-bold">★</span>
+              <span className="font-black text-[14px]">{notaMedia} <span className="text-[11px] text-slate-400 font-normal">/ 5.0</span></span>
             </div>
+          </div>
+          
+          <div className="flex items-center justify-between pb-3 border-b">
+            <span className="text-[11px] text-slate-500 font-medium">({totalAval} avaliações recebidas)</span>
             <button 
               onClick={() => setMostrarModalAvaliar(true)}
               className="text-[11px] font-bold text-slate-900 underline hover:text-black"
             >
-              avaliar
+              fazer avaliação
             </button>
+          </div>
+
+          {/* Lista de Comentários */}
+          <div className="space-y-3 pt-1">
+            {comentarios.length > 0 ? (
+              comentarios.map((item) => (
+                <div key={item.id} className="bg-[#fafaf7] p-3.5 rounded-2xl border border-slate-100 flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      {item.avaliadorFoto ? (
+                        <img src={item.avaliadorFoto} alt="" className="w-5 h-5 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 text-[9px] font-bold flex items-center justify-center">
+                          {(item.avaliadorNome || "U")[0].toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-[12px] font-bold text-slate-900">
+                        {formatarNomeAvaliador(item.avaliadorNome)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-0.5 text-yellow-500 text-[11px]">
+                      {Array.from({ length: Number(item.nota) || 5 }).map((_, i) => (
+                        <span key={i}>★</span>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {item.comentario && (
+                    <p className="text-[12px] text-slate-600 leading-relaxed mt-0.5">{item.comentario}</p>
+                  )}
+
+                  <div className="flex justify-between items-center mt-1">
+                    {item.vagaTitulo ? (
+                      <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full truncate max-w-[180px]">
+                        Serviço: {item.vagaTitulo}
+                      </span>
+                    ) : <span></span>}
+                    <span className="text-[9px] text-slate-400">
+                      {item.criadoEm?.toDate ? item.criadoEm.toDate().toLocaleDateString("pt-BR") : "Recentemente"}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-6 text-center">
+                <p className="text-[12px] text-slate-400">Nenhum comentário registrado ainda.</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -242,11 +320,7 @@ export default function PerfilVisitante({ usuarioId, usuarioData, usuarioLogado,
           vaga={vagaRelacionada}
           onClose={() => setMostrarModalAvaliar(false)}
           onSucesso={() => {
-            setVisitado(prev => ({
-              ...prev,
-              totalAvaliacoes: (prev.totalAvaliacoes || 0) + 1,
-              sumNotas: (prev.sumNotas || 0) + 5
-            }))
+            setMostrarModalAvaliar(false)
           }}
         />
       )}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../firebase.js";
 import CardVaga from "../components/CardVaga";
 import CardAnuncio from "../components/CardAnuncio";
@@ -22,62 +22,107 @@ const formatarDataLocal = (date) => {
   return `${y}-${m}-${d}`;
 };
 
-// ===== COMPONENTE DO BANNER DO TOPO =====
+// ===== COMPONENTE DO BANNER DO TOPO (SEMPRE VISÍVEL E FIXO) =====
 function BannerTopo() {
-  const [banners, setBanners] = useState([])
-  const [index, setIndex] = useState(0)
+  const [banners, setBanners] = useState([]);
+  const [index, setIndex] = useState(0);
+  const [carregouBanco, setCarregouBanco] = useState(false);
 
   useEffect(() => {
-    const q = query(
-      collection(db, "banners_topo"),
-      where("ativo", "==", true),
-      orderBy("criadoEm", "desc")
-    )
-    const unsub = onSnapshot(q, snap => {
-      const agora = new Date()
-      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(b => {
-        if (!b.expiraEm) return true
-        try {
-          const exp = b.expiraEm.toDate ? b.expiraEm.toDate() : new Date(b.expiraEm)
-          return exp > agora
-        } catch { return true }
-      })
-      setBanners(lista)
-    })
-    return () => unsub()
-  }, [])
+    // Busca sem where+orderBy juntos para evitar bloqueio de índice no Firestore
+    const q = query(collection(db, "banners_topo"));
+    const unsub = onSnapshot(q, (snap) => {
+      const agora = new Date();
+      const lista = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(b => {
+          if (b.ativo === false) return false;
+          if (!b.expiraEm) return true;
+          try {
+            const exp = b.expiraEm.toDate ? b.expiraEm.toDate() : new Date(b.expiraEm);
+            return exp > agora;
+          } catch {
+            return true;
+          }
+        });
+
+      // Ordena no front-end do mais novo para o mais antigo
+      lista.sort((a, b) => {
+        const dataA = a.criadoEm?.toMillis ? a.criadoEm.toMillis() : 0;
+        const dataB = b.criadoEm?.toMillis ? b.criadoEm.toMillis() : 0;
+        return dataB - dataA;
+      });
+
+      setBanners(lista);
+      setIndex(0);
+      setCarregouBanco(true);
+    }, (err) => {
+      console.error("Erro ao carregar banners:", err);
+      setCarregouBanco(true);
+    });
+
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
-    if (banners.length <= 1) return
-    const t = setInterval(() => setIndex(i => (i + 1) % banners.length), 5000)
-    return () => clearInterval(t)
-  }, [banners.length])
+    if (banners.length <= 1) return;
+    const t = setInterval(() => {
+      setIndex(i => (i + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(t);
+  }, [banners.length]);
 
-  if (banners.length === 0) return null
+  // Se ainda está carregando ou não há banner ativo no banco, exibe um espaço reservado fixo
+  if (banners.length === 0) {
+    if (!carregouBanco) {
+      return (
+        <div className="sticky top-0 z-30 w-full bg-slate-100 border-b border-slate-200 -mx-4 mb-4 h-[70px] animate-pulse flex items-center justify-center">
+          <span className="text-[10px] text-slate-400">Carregando destaque...</span>
+        </div>
+      );
+    }
+    return null;
+  }
 
-  const banner = banners[index]
+  const banner = banners[index] || banners[0];
 
   if (banner.tipo === "adsense") {
     return (
-      <div className="w-full bg-white border-b border-slate-200 flex justify-center -mx-4 mb-4">
+      <div className="sticky top-0 z-30 w-full bg-white/95 backdrop-blur border-b border-slate-200 flex justify-center -mx-4 mb-4 shadow-sm">
         <div className="w-full max-w-[640px]">
-          <p className="text-[8px] tracking-widest text-slate-400 text-center py-1">PUBLICIDADE</p>
-          <div className="min-h-[90px] bg-slate-50 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: banner.codigoAdsense || "" }} />
+          <p className="text-[8px] tracking-widest text-slate-400 text-center py-0.5">PUBLICIDADE</p>
+          <div className="min-h-[80px] bg-slate-50 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: banner.codigoAdsense || "" }} />
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="w-full bg-black -mx-4 mb-4">
+    <div className="sticky top-0 z-30 w-full bg-black -mx-4 mb-4 shadow-md">
       <div className="max-w-[640px] mx-auto relative">
         <a href={banner.link || "#"} target="_blank" rel="noopener noreferrer" className="block">
-          <img src={banner.imagem} alt={banner.titulo} className="w-full h-auto max-h-[120px] object-contain mx-auto" />
+          <img
+            src={banner.imagem}
+            alt={banner.titulo || "Destaque"}
+            className="w-full h-[90px] sm:h-[110px] object-cover mx-auto"
+          />
         </a>
-        <span className="absolute top-1 left-2 text-[8px] bg-black/60 text-white px-1.5 py-0.5 rounded">ANÚNCIO</span>
+        <span className="absolute top-1.5 left-2 text-[8px] font-bold bg-black/70 text-white px-1.5 py-0.5 rounded">
+          ANÚNCIO
+        </span>
+        {banners.length > 1 && (
+          <div className="absolute bottom-1.5 right-2 flex gap-1">
+            {banners.map((_, idx) => (
+              <span
+                key={idx}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${idx === index ? "bg-white w-3" : "bg-white/40"}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
-  )
+  );
 }
 
 export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], onCandidatar, onVerPerfil, cidadeFiltro = "Sinop", estadoFiltro = "MT", paisFiltro = "Brasil" }) {

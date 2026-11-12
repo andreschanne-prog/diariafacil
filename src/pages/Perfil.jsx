@@ -1,4 +1,4 @@
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, collection, onSnapshot, query, where } from "firebase/firestore";
 import { db, auth } from "../firebase.js";
 import { useState, useEffect } from "react";
 
@@ -87,6 +87,7 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
   const [cidadeFeed, setCidadeFeed] = useState(limparCidade(usuario?.feedCidade || usuario?.cidade || "Sinop"));
   const [cidadeInput, setCidadeInput] = useState(limparCidade(usuario?.feedCidade || "Sinop"));
   const [salvando, setSalvando] = useState(false);
+  const [comentarios, setComentarios] = useState([]);
 
   useEffect(() => {
     const salvo = localStorage.getItem("coords_diariafacil");
@@ -111,6 +112,35 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
     }
     if(usuario?.feedEstado) setEstadoFeed(usuario.feedEstado);
   }, [usuario]);
+
+  // Carrega as avaliações/comentários recebidos em tempo real
+  useEffect(() => {
+    const uidAlvo = usuario?.uid || auth.currentUser?.uid;
+    if (!uidAlvo) return;
+
+    const q = query(collection(db, "avaliacoes"), where("prestadorId", "==", uidAlvo));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const lista = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      lista.sort((a, b) => {
+        const dataA = a.criadoEm?.toMillis ? a.criadoEm.toMillis() : 0;
+        const dataB = b.criadoEm?.toMillis ? b.criadoEm.toMillis() : 0;
+        return dataB - dataA;
+      });
+      setComentarios(lista);
+    }, (err) => {
+      console.log("Erro ao carregar avaliações no perfil:", err);
+    });
+
+    return () => unsub();
+  }, [usuario?.uid]);
+
+  // Formata "Maria Silva" -> "Maria S."
+  const formatarNomeAvaliador = (nomeCompleto) => {
+    if (!nomeCompleto) return "Usuário";
+    const partes = nomeCompleto.trim().split(" ");
+    if (partes.length === 1) return partes[0];
+    return `${partes[0]} ${partes[partes.length - 1][0].toUpperCase()}.`;
+  };
 
   // Atualiza automaticamente a cidade selecionada quando troca o Estado
   const handleTrocaEstado = (novoEstado) => {
@@ -179,9 +209,10 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
     setSalvando(false);
   };
 
-  // Cálculo de avaliação real
-  const totalAval = usuario?.totalAvaliacoes || 0;
-  const notaMedia = totalAval > 0 ? ((usuario?.sumNotas || 0) / totalAval).toFixed(1) : "5.0";
+  // Cálculo de avaliação real baseado nos comentários ou dados do usuário
+  const totalAval = comentarios.length > 0 ? comentarios.length : (usuario?.totalAvaliacoes || 0);
+  const somaNotas = comentarios.length > 0 ? comentarios.reduce((acc, curr) => acc + (Number(curr.nota) || 5), 0) : (usuario?.sumNotas || 0);
+  const notaMedia = totalAval > 0 ? (somaNotas / totalAval).toFixed(1) : "5.0";
   const cidadesDoEstado = CIDADES_POR_ESTADO[estadoFeed] || [cidadeInput];
 
   if (modo === "minhas") {
@@ -264,6 +295,68 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
         <div className="mt-2 flex items-center justify-between">
           <p className="text-[10px] text-slate-400">Atual: <b className="text-slate-700">{local}</b></p>
           <p className="text-[10px] text-slate-400">Feed: <b className="text-slate-900">{cidadeFeed} - {estadoFeed}</b></p>
+        </div>
+      </div>
+
+      {/* SEÇÃO DE AVALIAÇÕES E COMENTÁRIOS RECEBIDOS */}
+      <div className="mt-3 bg-white border border-slate-200 p-4 rounded-2xl space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="font-semibold text-[13px]">⭐ Avaliações e Comentários</span>
+          <div className="flex items-center gap-1 font-bold text-[12px]">
+            <span className="text-yellow-500">★</span>
+            <span>{notaMedia} <span className="text-slate-400 font-normal">({totalAval})</span></span>
+          </div>
+        </div>
+
+        <div className="space-y-2.5 pt-1">
+          {comentarios.length > 0 ? (
+            comentarios.map((item) => (
+              <div key={item.id} className="bg-[#fafaf7] p-3 rounded-xl border border-slate-100 flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    {item.avaliadorFoto ? (
+                      <img src={item.avaliadorFoto} alt="" className="w-5 h-5 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[9px] font-bold flex items-center justify-center">
+                        {(item.avaliadorNome || "U")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-[12px] font-bold text-slate-900">
+                      {formatarNomeAvaliador(item.avaliadorNome)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-0.5 text-yellow-500 text-[11px]">
+                    {Array.from({ length: Number(item.nota) || 5 }).map((_, i) => (
+                      <span key={i}>★</span>
+                    ))}
+                  </div>
+                </div>
+
+                {item.comentario ? (
+                  <p className="text-[12px] text-slate-600 leading-relaxed bg-white p-2.5 rounded-lg border border-slate-100">
+                    "{item.comentario}"
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-400 italic">Apenas nota em estrelas.</p>
+                )}
+
+                <div className="flex justify-between items-center mt-0.5">
+                  {item.vagaTitulo ? (
+                    <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full truncate max-w-[170px]">
+                      Serviço: {item.vagaTitulo}
+                    </span>
+                  ) : <span></span>}
+                  <span className="text-[9px] text-slate-400">
+                    {item.criadoEm?.toDate ? item.criadoEm.toDate().toLocaleDateString("pt-BR") : "Recentemente"}
+                  </span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-6 text-center bg-slate-50 rounded-xl border border-dashed">
+              <p className="text-[12px] text-slate-400">Nenhum comentário recebido ainda.</p>
+            </div>
+          )}
         </div>
       </div>
 

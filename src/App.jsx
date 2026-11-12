@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react"
 import { auth, db } from "./firebase.js"
 import { onAuthStateChanged } from "firebase/auth"
-import { doc, getDoc, collection, onSnapshot, orderBy, query, where, getDocs, updateDoc, deleteDoc } from "firebase/firestore"
+import { doc, getDoc, collection, onSnapshot, orderBy, query, where, getDocs, updateDoc } from "firebase/firestore"
+import { getMessaging, getToken, onMessage } from "firebase/messaging"
 
 import Header from "./components/Header"
 import Feed from "./pages/Feed"
@@ -39,7 +40,8 @@ export default function App() {
   const [termosAceito, setTermosAceito] = useState(false)
   const [privacidadeAceita, setPrivacidadeAceita] = useState(false)
   const [anuncioEditando, setAnuncioEditando] = useState(null)
-  
+  const [notificacaoAviso, setNotificacaoAviso] = useState(null)
+
   const [showWelcome, setShowWelcome] = useState(() => {
     return !localStorage.getItem("jaViuWelcome_diariafacil");
   })
@@ -83,6 +85,53 @@ export default function App() {
     })
     return () => unsub()
   }, [])
+
+  // Configuração de Notificações Web Push (Firebase Cloud Messaging)
+  useEffect(() => {
+    if (!logado || !usuario?.uid) return;
+    if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) return;
+
+    let unsubscribeOnMessage = null;
+
+    const ativarNotificacoes = async () => {
+      try {
+        const permissao = await Notification.requestPermission();
+        if (permissao !== "granted") return;
+
+        const registroSW = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+        const messaging = getMessaging();
+
+        const tokenAtual = await getToken(messaging, {
+          vapidKey: "SUA_CHAVE_VAPID_AQUI",
+          serviceWorkerRegistration: registroSW
+        });
+
+        if (tokenAtual && tokenAtual !== usuario.fcmToken) {
+          const userRef = doc(db, "usuarios", usuario.uid);
+          await updateDoc(userRef, {
+            fcmToken: tokenAtual,
+            notificacoesAtivas: true
+          }).catch(() => {});
+          setUsuario(prev => prev ? { ...prev, fcmToken: tokenAtual } : prev);
+        }
+
+        unsubscribeOnMessage = onMessage(messaging, (payload) => {
+          const titulo = payload.notification?.title || "Nova notificação";
+          const corpo = payload.notification?.body || "";
+          setNotificacaoAviso({ titulo, corpo });
+          setTimeout(() => setNotificacaoAviso(null), 5000);
+        });
+      } catch (err) {
+        console.log("Aviso push:", err);
+      }
+    };
+
+    ativarNotificacoes();
+
+    return () => {
+      if (unsubscribeOnMessage) unsubscribeOnMessage();
+    };
+  }, [logado, usuario?.uid]);
 
   useEffect(() => {
     const checarAdmin = async () => {
@@ -248,6 +297,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
+      {notificacaoAviso && (
+        <div onClick={() => setNotificacaoAviso(null)} className="fixed top-4 left-4 right-4 max-w-[420px] mx-auto bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg z-[999] cursor-pointer flex flex-col gap-0.5 border border-slate-700">
+          <p className="text-[12px] font-semibold">{notificacaoAviso.titulo}</p>
+          {notificacaoAviso.corpo && <p className="text-[11px] text-slate-300">{notificacaoAviso.corpo}</p>}
+        </div>
+      )}
       <Header onPostar={()=>setTela("criar")} usuario={usuario} isAdmin={isAdmin} onAdmin={()=>setTela("admin")} />
       {tela === "feed" && <><Feed vagas={feedVagas} anuncios={anuncios} cidadeFiltro={cidadeFiltro} estadoFiltro={estadoFiltro} onVerPerfil={abrirPerfilVisitante} /><Footer /></>}
       {tela === "criar" && <CriarVaga onVoltar={()=>setTela("feed")} onSucesso={()=>setTela("feed")} usuario={usuario} />}
@@ -296,7 +351,7 @@ export default function App() {
       )}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-2 py-3 flex justify-center z-50">
         <div className="flex items-center gap-1 bg-slate-100 rounded-full p-1">
-          {navItem("feed","Principal")}
+          {navItem("feed","vagas")}
           {navItem("minhas","Anuncios")}
           {navItem("aceitas","Aceitas",aceitasCount)}
           {navItem("perfil","Perfil")}
