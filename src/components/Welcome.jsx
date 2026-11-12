@@ -13,14 +13,14 @@ export default function Welcome({ onEntrar }) {
     {
       icon: "/icon.jpeg",
       title: "Precisa de diarista?",
-      desc: "Crie um anuncio ofereçendo vagas pra diáristas se candidatarem a vaga. você escolhe quem deseja depois de analizar o perfil de cada candidato.",
+      desc: "Crie um anúncio ofereçendo vagas pra diáristas se candidatarem a vaga. você escolhe quem deseja depois de analizar o perfil de cada candidato.",
       cta: "E pra quem quer trabalhar?"
     },
     {
       icon: "/icon.jpeg",
-      title: "Precisa de umas diarias pra salvar o orçamento no fim do mês?",
+      title: "Precisa de umas diárias pra salvar o orçamento no fim do mês?",
       desc: "Veja todas as vagas da sua cidade. Se interessou? clica e se candidate, se for escolhido pra vaga logo aparecerá o contato do anunciante.",
-      cta: "Começar agora?"
+      cta: "Começar agora"
     }
   ];
 

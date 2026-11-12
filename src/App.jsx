@@ -21,6 +21,7 @@ import Privacidade from "./pages/privacidade"
 import CriarAnuncio from "./pages/CriarAnuncio"
 import Welcome from "./components/Welcome"
 import DeletarConta from "./components/DeletarConta"
+import ModalAvisoFlutuante from "./components/ModalAvisoFlutuante"
 
 export default function App() {
   const [tela, setTela] = useState("feed")
@@ -297,7 +298,7 @@ export default function App() {
   )
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900" translate="no">
       {notificacaoAviso && (
         <div onClick={() => setNotificacaoAviso(null)} className="fixed top-4 left-4 right-4 max-w-[420px] mx-auto bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg z-[999] cursor-pointer flex flex-col gap-0.5 border border-slate-700">
           <p className="text-[12px] font-semibold">{notificacaoAviso.titulo}</p>
@@ -357,6 +358,10 @@ export default function App() {
           <button onClick={()=>window.open("https://wa.me/5566992576552","_blank")} className="mt-6 w-full bg-slate-900 text-white h-11 rounded-full text-[14px] font-medium">Abrir WhatsApp</button>
         </div>
       )}
+
+      {/* Modal de aviso flutuante global (não exibe se estiver no painel Admin) */}
+      {tela !== "admin" && <ModalAvisoFlutuante />}
+
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-2 py-3 flex justify-center z-50">
         <div className="flex items-center gap-1 bg-slate-100 rounded-full p-1">
           {navItem("feed","vagas")}

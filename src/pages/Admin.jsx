@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { collection, getDocs, doc, deleteDoc, updateDoc, query, orderBy, onSnapshot, addDoc, serverTimestamp, Timestamp } from "firebase/firestore"
 import { db } from "../firebase.js"
 import Estatisticas from "../components/Estatisticas" // Importando o componente de estatísticas
+import EnviarRecado from "../components/EnviarRecado" // Importando o componente de envio de recados
 
 export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, onVerRelatorio, onVerPerfil }) {
   const [vagas, setVagas] = useState([])
@@ -123,12 +124,17 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
     contasDeletadas: `🗑️ Contas Deletadas (${contasDeletadas.length})`,
     denuncias: `🚨 Denúncias (${pendentes})`,
     vagas: `📋 Vagas (${vagas.length})`,
-    estatisticas: `📊 Estatísticas`
+    estatisticas: `📊 Estatísticas`,
+    enviarRecado: `📢 Enviar Recado`
   }
 
-  // Se a aba selecionada for estatísticas, renderiza o componente dedicado repassando onVerPerfil
+  // Renderização condicional das telas secundárias
   if (aba === "estatisticas") {
     return <Estatisticas onVoltar={() => setAba("anuncios")} onVerPerfil={onVerPerfil} />
+  }
+
+  if (aba === "enviarRecado") {
+    return <EnviarRecado onVoltar={() => setAba("anuncios")} />
   }
 
   return (
@@ -173,6 +179,10 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
                   <span>🔝 Banners Topo</span>
                   <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{bannersTopo.length}</span>
                 </button>
+                <button onClick={()=>{setAba("enviarRecado"); setMenuAberto(false)}} className={`w-full text-left px-4 py-3 text-[12px] font-bold flex items-center justify-between hover:bg-slate-50 ${aba==="enviarRecado"?"text-purple-700 bg-purple-50":""}`}>
+                  <span>📢 Enviar Recados</span>
+                  <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Novo</span>
+                </button>
                 <button onClick={()=>{setAba("estatisticas"); setMenuAberto(false)}} className={`w-full text-left px-4 py-3 text-[12px] font-bold flex items-center justify-between hover:bg-slate-50 ${aba==="estatisticas"?"text-emerald-700 bg-emerald-50":""}`}>
                   <span>📊 Estatísticas</span>
                   <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Gráficos</span>
@@ -202,6 +212,12 @@ export default function Admin({ onVoltar, onAbrirCriarAnuncio, onEditarAnuncio, 
             <button onClick={onAbrirCriarAnuncio} className="w-full h-14 bg-slate-900 text-white rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2 shadow-sm hover:bg-black transition">
               + CRIAR NOVO ANÚNCIO
             </button>
+            
+            {/* BOTÃO DE ATALHO RÁPIDO PARA ENVIAR RECADOS */}
+            <button onClick={() => setAba("enviarRecado")} className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2 shadow-sm transition">
+              📢 ENVIAR AVISO / RECADO FLUTUANTE
+            </button>
+
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-white border rounded-2xl p-3 text-center shadow-xs"><p className="text-[9px] text-slate-400 tracking-widest">IMPRESSÕES</p><p className="text-[18px] font-black">{totalImp}</p><p className="text-[9px] text-slate-400">pessoas viram</p></div>
               <div className="bg-white border rounded-2xl p-3 text-center shadow-xs"><p className="text-[9px] text-slate-400 tracking-widest">CLIQUES</p><p className="text-[18px] font-black">{totalCliques}</p><p className="text-[9px] text-emerald-600">interessados</p></div>
