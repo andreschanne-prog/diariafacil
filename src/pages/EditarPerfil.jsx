@@ -7,14 +7,21 @@ const CLOUD_NAME = "nzj72eu0"
 const UPLOAD_PRESET = "mishh_upload"
 
 export default function EditarPerfil({ usuario, onVoltar, onSalvar }) {
+  // Transforma o array ou string de especialidades em texto para edição (separado por vírgula)
+  const formatarEspecInicial = (esp) => {
+    if (Array.isArray(esp)) return esp.join(", ");
+    if (typeof esp === "string") return esp;
+    return "Diarista, Limpeza Residencial, Faxina Geral";
+  };
+
   const [form, setForm] = useState({
     nome: usuario?.nome || "",
     cidade: usuario?.cidade || "Sinop - MT",
     idade: usuario?.idade || "",
     experiencia: usuario?.experiencia || "",
-    // BIO pega de qualquer campo antigo que você já usou
     sobre: usuario?.sobre || usuario?.bio || usuario?.experiencias || "",
     whatsapp: usuario?.whatsapp || usuario?.zap || "",
+    especialidades: formatarEspecInicial(usuario?.especialidades || usuario?.habilidades),
   })
   const [fotoFile, setFotoFile] = useState(null)
   const [preview, setPreview] = useState(usuario?.foto || "")
@@ -28,8 +35,8 @@ export default function EditarPerfil({ usuario, onVoltar, onSalvar }) {
   }
 
   const salvar = async () => {
-    if (!auth.currentUser) return alert("Não logado! Faz login com Google.")
-    if (!form.nome) return alert("Coloca seu nome")
+    if (!auth.currentUser) return alert("Você precisa estar logado!")
+    if (!form.nome) return alert("Por favor, preencha seu nome.")
     setSalvando(true)
     try {
       let fotoUrl = usuario?.foto || ""
@@ -50,6 +57,12 @@ export default function EditarPerfil({ usuario, onVoltar, onSalvar }) {
         fotoUrl = data.secure_url
       }
 
+      // Converte o texto digitado em um array limpo de tags (separadas por vírgula)
+      const listaEspecialidades = form.especialidades
+        .split(",")
+        .map(item => item.trim())
+        .filter(item => item.length > 0);
+
       const refDoc = doc(db, "usuarios", auth.currentUser.uid)
       const dados = {
         nome: form.nome,
@@ -57,10 +70,12 @@ export default function EditarPerfil({ usuario, onVoltar, onSalvar }) {
         idade: form.idade,
         experiencia: form.experiencia,
         sobre: form.sobre.trim(),
-        bio: form.sobre.trim(), // salva como bio também
-        experiencias: form.sobre.trim(), // e como experiencias pra funcionar no Perfil.jsx que já fizemos
+        bio: form.sobre.trim(),
+        experiencias: form.sobre.trim(),
         whatsapp: form.whatsapp,
         zap: form.whatsapp,
+        especialidades: listaEspecialidades,
+        habilidades: listaEspecialidades, // Salva em ambos para compatibilidade
         email: auth.currentUser.email,
         foto: fotoUrl,
         atualizadoEm: new Date(),
@@ -69,76 +84,131 @@ export default function EditarPerfil({ usuario, onVoltar, onSalvar }) {
       await setDoc(refDoc, dados, { merge: true })
       await updateProfile(auth.currentUser, { displayName: form.nome, photoURL: fotoUrl || auth.currentUser.photoURL })
 
-      alert("✅ Perfil salvo!")
+      alert("✅ Perfil salvo com sucesso!")
       if (onSalvar) onSalvar(dados)
       if (onVoltar) onVoltar()
     } catch (e) {
       console.log(e)
-      alert("Erro: " + e.message)
+      alert("Erro ao salvar: " + e.message)
     } finally {
       setSalvando(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#fef9ef] p-6 max-w-[600px] mx-auto pb-28">
-      <div className="flex items-center gap-4">
-        <button onClick={onVoltar} className="w-10 h-10 bg-white border rounded-full font-bold">←</button>
-        <h1 className="text-xl font-black">Editar Perfil</h1>
+    <div className="max-w-[640px] mx-auto min-h-screen bg-[#F8FAFC] p-4 pb-28">
+      {/* CABEÇALHO */}
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={onVoltar} 
+          className="w-9 h-9 bg-white border border-slate-200 rounded-full flex items-center justify-center font-bold text-slate-700 hover:bg-slate-50 transition"
+        >
+          ←
+        </button>
+        <h2 className="text-[15px] font-semibold tracking-tight">Editar Perfil</h2>
       </div>
       
-      <div className="mt-6 flex flex-col items-center">
-        <div className="w-24 h-24 bg-zinc-200 rounded-full overflow-hidden flex items-center justify-center text-2xl font-black border">
-          {preview ? <img src={preview} className="w-full h-full object-cover" /> : form.nome[0]?.toUpperCase()}
+      {/* FOTO DE PERFIL */}
+      <div className="mt-5 bg-white border border-slate-200 p-5 rounded-2xl flex flex-col items-center">
+        <div className="w-20 h-20 rounded-full bg-slate-100 overflow-hidden ring-1 ring-slate-200 flex items-center justify-center text-xl font-bold text-slate-500">
+          {preview ? <img src={preview} className="w-full h-full object-cover" /> : (form.nome?.[0]?.toUpperCase() || "A")}
         </div>
-        <label className="mt-3 text-[12px] font-black bg-black text-white px-5 py-2.5 rounded-full cursor-pointer">
-          TROCAR FOTO
+        <label className="mt-3 h-8 px-4 bg-slate-900 text-white rounded-full text-[11px] font-medium flex items-center justify-center cursor-pointer hover:bg-slate-800 transition">
+          Trocar foto
           <input type="file" accept="image/*" onChange={handleFoto} className="hidden" />
         </label>
       </div>
 
-      <div className="mt-8 space-y-4">
-        <div className="bg-white p-1 rounded-[20px] border shadow-sm">
-          <input value={form.nome} onChange={e=>setForm({...form, nome: e.target.value})} placeholder="Seu nome" className="w-full p-4 rounded-xl outline-none font-bold text-[14px]" />
+      {/* FORMULÁRIO DE EDIÇÃO */}
+      <div className="mt-3 space-y-3">
+        <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+          <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Nome completo</label>
+          <input 
+            value={form.nome} 
+            onChange={e=>setForm({...form, nome: e.target.value})} 
+            placeholder="Seu nome" 
+            className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-3 text-[13px] font-medium outline-none focus:border-slate-900" 
+          />
         </div>
         
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white p-1 rounded-[20px] border shadow-sm">
-            <input value={form.cidade} onChange={e=>setForm({...form, cidade: e.target.value})} placeholder="Cidade" className="w-full p-4 rounded-xl outline-none text-[14px]" />
+          <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+            <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Cidade</label>
+            <input 
+              value={form.cidade} 
+              onChange={e=>setForm({...form, cidade: e.target.value})} 
+              placeholder="Ex: Sinop - MT" 
+              className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-3 text-[13px] font-medium outline-none focus:border-slate-900" 
+            />
           </div>
-          <div className="bg-white p-1 rounded-[20px] border shadow-sm">
-            <input value={form.idade} onChange={e=>setForm({...form, idade: e.target.value})} placeholder="Idade" className="w-full p-4 rounded-xl outline-none text-[14px]" />
+          <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+            <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Idade</label>
+            <input 
+              value={form.idade} 
+              onChange={e=>setForm({...form, idade: e.target.value})} 
+              placeholder="Sua idade" 
+              className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-3 text-[13px] font-medium outline-none focus:border-slate-900" 
+            />
           </div>
         </div>
 
-        <div className="bg-white p-1 rounded-[20px] border shadow-sm">
-          <input value={form.experiencia} onChange={e=>setForm({...form, experiencia: e.target.value})} placeholder="Experiência (Ex: 2 anos)" className="w-full p-4 rounded-xl outline-none text-[14px]" />
+        <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+          <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Tempo de experiência</label>
+          <input 
+            value={form.experiencia} 
+            onChange={e=>setForm({...form, experiencia: e.target.value})} 
+            placeholder="Ex: 2 anos" 
+            className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-3 text-[13px] font-medium outline-none focus:border-slate-900" 
+          />
         </div>
 
-        <div className="bg-white p-1 rounded-[20px] border shadow-sm">
-          <input value={form.whatsapp} onChange={e=>setForm({...form, whatsapp: e.target.value})} placeholder="Whatsapp (66) 9xxxx-xxxx" className="w-full p-4 rounded-xl outline-none text-[14px] font-mono" />
+        {/* ESPECIALIDADES E ÁREAS DE ATUAÇÃO */}
+        <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+          <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Especialidades e Áreas de Atuação</label>
+          <p className="text-[11px] text-slate-500 mt-0.5 mb-1 leading-snug">Separe os serviços com vírgula (ex: Diarista, Limpeza Residencial, Passadeira).</p>
+          <input 
+            value={form.especialidades} 
+            onChange={e=>setForm({...form, especialidades: e.target.value})} 
+            placeholder="Diarista, Limpeza Residencial, Faxina Geral" 
+            className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-3 text-[13px] font-medium outline-none focus:border-slate-900" 
+          />
         </div>
 
-        {/* BIO - IGUAL O PRINT QUE VOCÊ MANDOU */}
-        <div className="bg-white p-5 rounded-[24px] border shadow-sm">
-          <div className="flex justify-between items-center">
-            <label className="text-[11px] font-black">💼 SOBRE MIM / BIO</label>
-            <span className={`text-[10px] px-2 py-1 rounded-full font-black ${form.sobre.length > 280 ? "bg-red-100 text-red-600" : "bg-black text-white"}`}>
+        <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+          <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">WhatsApp</label>
+          <input 
+            value={form.whatsapp} 
+            onChange={e=>setForm({...form, whatsapp: e.target.value})} 
+            placeholder="(66) 9xxxx-xxxx" 
+            className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-3 text-[13px] font-mono font-medium outline-none focus:border-slate-900" 
+          />
+        </div>
+
+        {/* BIO / SOBRE MIM */}
+        <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Sobre mim / Bio</label>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${form.sobre.length > 280 ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-600"}`}>
               {form.sobre.length}/300
             </span>
           </div>
-          <p className="text-[11px] opacity-50 mt-1 leading-tight">Essa bio aparece no seu perfil e quando você se candidata. Fale o que faz bem.</p>
+          <p className="text-[11px] text-slate-500 mb-2 leading-snug">Essa bio aparece no seu perfil e quando você se candidata às vagas.</p>
           <textarea 
+            rows={4}
             value={form.sobre} 
             onChange={e=>setForm({...form, sobre: e.target.value.slice(0,300)})} 
-            placeholder="Ex: Sou diarista há 3 anos em Sinop, faço faxina completa, passo roupa e cozinho simples. Atendo Jardim Imperial e Aquarela. Tenho referência da Dona Maria (66) 9xxxx-xxxx. Pontual e caprichosa."
-            className="mt-3 w-full min-h-[130px] bg-zinc-50 border rounded-[16px] p-4 text-[13px] leading-relaxed outline-none focus:border-black resize-none" 
+            placeholder="Ex: Sou diarista há 3 anos em Sinop, faço faxina completa, passo roupa e cozinho simples..." 
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-[12px] leading-relaxed outline-none focus:border-slate-900 resize-none" 
           />
         </div>
       </div>
 
-      <button onClick={salvar} disabled={salvando} className="mt-6 w-full bg-black text-white py-4 rounded-full font-black disabled:opacity-50">
-        {salvando ? "SALVANDO..." : "SALVAR PERFIL"}
+      <button 
+        onClick={salvar} 
+        disabled={salvando} 
+        className="mt-4 w-full h-11 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[12px] font-medium disabled:opacity-50 transition shadow-xs"
+      >
+        {salvando ? "Salvando alterações..." : "Salvar alterações"}
       </button>
     </div>
   )

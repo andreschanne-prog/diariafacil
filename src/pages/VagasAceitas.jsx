@@ -1,6 +1,8 @@
 import { useState } from "react";
 
 export default function VagasAceitas({ vagas = [], usuario }) {
+  // Guarda os IDs das vagas cujos botões do WhatsApp já foram clicados
+  const [clicadosZap, setClicadosZap] = useState(new Set());
   
   // só vagas onde EU fui aceita
   const aceitas = vagas.filter(v => 
@@ -9,10 +11,14 @@ export default function VagasAceitas({ vagas = [], usuario }) {
     )
   );
 
-  const abrirZap = (zap) => {
+  const abrirZap = (vagaId, zap) => {
     const num = zap?.replace(/\D/g, "") || "";
-    if(!num) return alert("Contatonão encontrado");
-    window.open(`https://wa.me/55${num}?text=Olá! Fui aceita na sua vaga no Diária Fácil!`, "_blank");
+    if(!num) return alert("Contato não encontrado");
+
+    // Marca esta vaga como clicada para mudar a cor da borda
+    setClicadosZap(prev => new Set(prev).add(vagaId));
+
+    window.open(`https://wa.me/55${num}?text=Olá! Fui aceito(a) para a sua vaga no Diária Fácil. Podemos alinhar os detalhes?`, "_blank");
   };
 
   return (
@@ -30,22 +36,32 @@ export default function VagasAceitas({ vagas = [], usuario }) {
         ) : (
           aceitas.map(v => {
             const zapLimpo = v.zap || v.whatsapp || "";
+            const jaClicou = clicadosZap.has(v.id);
+
             return (
-              <div key={v.id} className="bg-white p-5 rounded-[24px] border shadow-sm border-green-200">
+              <div 
+                key={v.id} 
+                className={`bg-white p-5 rounded-[24px] border shadow-sm transition-colors duration-300 ${
+                  jaClicou ? "border-slate-300" : "border-green-200"
+                }`}
+              >
                 <div className="flex justify-between items-start gap-2">
                   <div>
-                    <p className="font-black text-[12px] text-green-700">✅ VOCÊ FOI ACEITA!</p>
+                    <p className="font-black text-[12px] text-green-700">✅ VOCÊ FOI ACEITO(A)!</p>
                     <p className="font-black text-[15px] mt-1 leading-tight">{v.titulo}</p>
-                    <p className="text-[11px] opacity-60 mt-1">📍 {v.cidade} • 💰 {v.valor}</p>
+                    <p className="text-[11px] opacity-60 mt-1">📍 {v.cidade} • R$ {v.valor}</p>
                   </div>
                   <span className="text-[10px] font-black bg-green-600 text-white px-3 py-1 rounded-full">ACEITA</span>
                 </div>
 
                 <div className="mt-4 bg-green-50 border border-green-200 p-4 rounded-xl">
-                  <p className="text-[11px] font-black text-green-800"> CONTATO LIBERADO:</p>
+                  <p className="text-[11px] font-black text-green-800">CONTATO LIBERADO:</p>
                   <p className="text-[16px] font-mono font-black mt-1">{zapLimpo}</p>
-                  <button onClick={()=>abrirZap(zapLimpo)} className="mt-3 w-full bg-green-600 text-white py-3 rounded-full font-black text-[12px]">
-                     WHATSAPP
+                  <button 
+                    onClick={() => abrirZap(v.id, zapLimpo)} 
+                    className="mt-3 w-full bg-green-600 text-white py-3 rounded-full font-black text-[12px] hover:bg-green-700 transition"
+                  >
+                    WHATSAPP
                   </button>
                 </div>
 

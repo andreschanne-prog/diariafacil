@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 
 const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
-// Mapeamento completo com as principais cidades e municípios por estado
 const CIDADES_POR_ESTADO = {
   MT: [
     "Sinop", "Cuiabá", "Várzea Grande", "Rondonópolis", "Sorriso", "Lucas do Rio Verde", 
@@ -71,13 +70,22 @@ const CIDADES_POR_ESTADO = {
   ES: ["Vitória", "Vila Velha", "Serra", "Cariacica", "Cachoeiro de Itapemirim", "Linhares", "São Mateus", "Colatina", "Guarapari", "Aracruz", "Viana", "Nova Venécia"]
 };
 
-// Limpa "Sinop - MT" -> "Sinop"
 const limparCidade = (txt) => {
   if(!txt) return "";
   return txt.replace(/\s*-\s*[A-Z]{2}\s*$/,"").replace(/,\s*[A-Z]{2}\s*$/,"").trim();
 };
 
-export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, onDeletar, onSuporte, onAnuncio, onSalvarCidade }) {
+export default function Perfil({
+  vagas = [],
+  modo,
+  usuario,
+  onSair,
+  onEditar,
+  onDeletar,
+  onSuporte,
+  onContatos,
+  onSalvarCidade
+}) {
   const [local, setLocal] = useState(limparCidade(usuario?.cidade || "Sinop") + " - MT");
   const [coords, setCoords] = useState(null);
   const [carregandoLocal, setCarregandoLocal] = useState(false);
@@ -88,6 +96,11 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
   const [cidadeInput, setCidadeInput] = useState(limparCidade(usuario?.feedCidade || "Sinop"));
   const [salvando, setSalvando] = useState(false);
   const [comentarios, setComentarios] = useState([]);
+
+  // Estados para edição rápida da Bio (Sugestão 6)
+  const [editandoBio, setEditandoBio] = useState(false);
+  const [textoBio, setTextoBio] = useState(usuario?.experiencias || usuario?.bio || usuario?.sobre || "");
+  const [salvandoBio, setSalvandoBio] = useState(false);
 
   useEffect(() => {
     const salvo = localStorage.getItem("coords_diariafacil");
@@ -111,9 +124,12 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
       setCidadeInput(limpa); 
     }
     if(usuario?.feedEstado) setEstadoFeed(usuario.feedEstado);
+    
+    if(usuario?.experiencias || usuario?.bio || usuario?.sobre) {
+      setTextoBio(usuario.experiencias || usuario.bio || usuario.sobre);
+    }
   }, [usuario]);
 
-  // Carrega as avaliações/comentários recebidos em tempo real
   useEffect(() => {
     const uidAlvo = usuario?.uid || auth.currentUser?.uid;
     if (!uidAlvo) return;
@@ -134,7 +150,6 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
     return () => unsub();
   }, [usuario?.uid]);
 
-  // Formata "Maria Silva" -> "Maria S."
   const formatarNomeAvaliador = (nomeCompleto) => {
     if (!nomeCompleto) return "Usuário";
     const partes = nomeCompleto.trim().split(" ");
@@ -142,7 +157,6 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
     return `${partes[0]} ${partes[partes.length - 1][0].toUpperCase()}.`;
   };
 
-  // Atualiza automaticamente a cidade selecionada quando troca o Estado
   const handleTrocaEstado = (novoEstado) => {
     setEstadoFeed(novoEstado);
     const listaCidades = CIDADES_POR_ESTADO[novoEstado] || [];
@@ -202,18 +216,47 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
         onSalvarCidade(dadosNovos);
       }
 
-      alert(`✅ Agora você vê vagas de ${cidadeFinal} - ${estadoFeed}`);
+      alert(`✅ Vagas atualizadas para ${cidadeFinal} - ${estadoFeed}!`);
     } catch(e){ 
       alert("Erro ao salvar: " + e.message); 
     }
     setSalvando(false);
   };
 
-  // Cálculo de avaliação real baseado nos comentários ou dados do usuário
+  // Salvar Bio Inline (Sugestão 6)
+  const salvarBioInline = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    setSalvandoBio(true);
+    try {
+      await updateDoc(doc(db, "usuarios", user.uid), {
+        experiencias: textoBio.trim(),
+        sobre: textoBio.trim()
+      });
+      setEditandoBio(false);
+      alert("Bio atualizada com sucesso!");
+    } catch (e) {
+      alert("Erro ao salvar bio: " + e.message);
+    }
+    setSalvandoBio(false);
+  };
+
+  // Compartilhar Perfil no WhatsApp (Sugestão 7)
+  const compartilharPerfil = () => {
+    const nome = usuario?.nome || "Profissional";
+    const nota = notaMedia;
+    const cidadeLocal = usuario?.cidade || "Sinop - MT";
+    const texto = `👷‍♂️ Olá! Conheça meu perfil profissional no Diária Fácil:\n\n*${nome}*\n⭐ Avaliação: ${nota} (${totalAval} avaliações)\n📍 Atende em: ${cidadeLocal}\n\nConfira vagas e contrate com segurança!`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+  };
+
   const totalAval = comentarios.length > 0 ? comentarios.length : (usuario?.totalAvaliacoes || 0);
   const somaNotas = comentarios.length > 0 ? comentarios.reduce((acc, curr) => acc + (Number(curr.nota) || 5), 0) : (usuario?.sumNotas || 0);
   const notaMedia = totalAval > 0 ? (somaNotas / totalAval).toFixed(1) : "5.0";
   const cidadesDoEstado = CIDADES_POR_ESTADO[estadoFeed] || [cidadeInput];
+
+  // Especialidades / Tags customizadas do prestador (Sugestão 5)
+  const especialidades = usuario?.especialidades || usuario?.habilidades || ["Ainda precisa ser editado pelo usuário"];
 
   if (modo === "minhas") {
     return (
@@ -235,27 +278,56 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
           </button>
           {menuAberto && (
             <div className="absolute right-0 top-10 w-[200px] bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden z-50">
-              <button onClick={()=>{ setMenuAberto(false); onEditar?.(); }} className="w-full text-left px-4 py-3 text-[12px] font-medium hover:bg-slate-50">Editar perfil</button>
+              <button onClick={()=>{ setMenuAberto(false); onEditar?.(); }} className="w-full text-left px-4 py-3 text-[12px] font-medium hover:bg-slate-50">Editar perfil completo</button>
+              <button onClick={()=>{ setMenuAberto(false); onContatos?.(); }} className="w-full text-left px-4 py-3 text-[12px] font-medium hover:bg-slate-50 border-t border-slate-100">Contatos</button>
               <button onClick={()=>{ setMenuAberto(false); onSuporte?.(); }} className="w-full text-left px-4 py-3 text-[12px] font-medium hover:bg-slate-50 border-t border-slate-100">Suporte</button>
-              <button onClick={()=>{ setMenuAberto(false); onAnuncio?.(); }} className="w-full text-left px-4 py-3 text-[12px] font-medium hover:bg-slate-50 border-t border-slate-100">Solicitar anúncio</button>
               <button onClick={()=>{ setMenuAberto(false); onDeletar?.(); }} className="w-full text-left px-4 py-3 text-[12px] font-medium hover:bg-red-50 border-t border-slate-100 text-red-600">Deletar conta</button>
             </div>
           )}
         </div>
       </div>
       
+      {/* CABEÇALHO DO PERFIL */}
       <div className="mt-5 bg-white border border-slate-200 p-4 rounded-2xl flex gap-3 items-center">
         <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden ring-1 ring-slate-200 flex-shrink-0">
           {usuario?.foto ? <img src={usuario.foto} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-semibold text-slate-500">{usuario?.nome?.[0]?.toUpperCase() || "A"}</div>}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[14px] truncate">{usuario?.nome || "Usuário"}</p>
-          <p className="text-[11px] text-slate-500 mt-1">⭐ {notaMedia} ({totalAval} avaliações) • Verificado</p>
-          <p className="text-[10px] mt-1 font-medium text-emerald-600">{coords ? "GPS ativo" : "GPS desativado"}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="font-semibold text-[14px] truncate">{usuario?.nome || "Usuário"}</p>
+            <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold">✓ Verificado</span>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-0.5">⭐ {notaMedia} ({totalAval} avaliações)</p>
+          <p className="text-[10px] mt-0.5 font-medium text-emerald-600">{coords ? "GPS ativo" : "GPS desativado"}</p>
         </div>
         <button onClick={onEditar} className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-medium">Editar</button>
       </div>
 
+      {/* SUGESTÃO 5: TAGS DE ESPECIALIDADES / HABILIDADES */}
+      <div className="mt-3 bg-white border border-slate-200 p-4 rounded-2xl">
+        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Especialidades:</p>
+        <div className="flex flex-wrap gap-1.5">
+          {Array.isArray(especialidades) ? (
+            especialidades.map((esp, idx) => (
+              <span key={idx} className="text-[11px] bg-slate-100 border border-slate-200 text-slate-700 px-3 py-1 rounded-full font-medium">
+                {esp}
+              </span>
+            ))
+          ) : (
+            <span className="text-[11px] bg-slate-100 text-slate-700 px-3 py-1 rounded-full font-medium">Ainda precisa ser editado pelo usuário</span>
+          )}
+        </div>
+      </div>
+
+      {/* SUGESTÃO 7: BOTÃO DE COMPARTILHAR PERFIL NO WHATSAPP */}
+      <button 
+        onClick={compartilharPerfil}
+        className="mt-3 w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[12px] font-bold flex items-center justify-center gap-2 shadow-xs transition"
+      >
+        <span>📲</span> COMPARTILHAR MEU PERFIL NO WHATSAPP
+      </button>
+
+      {/* CONFIGURAÇÃO DO FEED DE VAGAS */}
       <div className="mt-3 bg-white border border-slate-200 p-4 rounded-2xl">
         <div className="flex justify-between items-center">
           <span className="font-semibold text-[13px]">Onde ver vagas!</span>
@@ -298,10 +370,10 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
         </div>
       </div>
 
-      {/* SEÇÃO DE AVALIAÇÕES E COMENTÁRIOS RECEBIDOS */}
+      {/* SEÇÃO DE AVALIAÇÕES E COMENTÁRIOS */}
       <div className="mt-3 bg-white border border-slate-200 p-4 rounded-2xl space-y-3">
         <div className="flex justify-between items-center">
-          <span className="font-semibold text-[13px]">⭐ Avaliações e Comentários</span>
+          <span className="font-semibold text-[13px]">⭐ Avaliações</span>
           <div className="flex items-center gap-1 font-bold text-[12px]">
             <span className="text-yellow-500">★</span>
             <span>{notaMedia} <span className="text-slate-400 font-normal">({totalAval})</span></span>
@@ -360,18 +432,43 @@ export default function Perfil({ vagas = [], modo, usuario, onSair, onEditar, on
         </div>
       </div>
 
+      {/* SUGESTÃO 6: EDIÇÃO RÁPIDA DA BIO (MODO INLINE) */}
       <div className="mt-3 bg-white border border-slate-200 p-4 rounded-2xl">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mb-2">
           <span className="font-medium text-[13px]">Sobre mim</span>
-          <button onClick={onEditar} className="text-[11px] text-slate-500 underline">editar</button>
+          {!editandoBio ? (
+            <button onClick={() => setEditandoBio(true)} className="text-[11px] text-slate-500 underline font-medium">editar rápido</button>
+          ) : (
+            <button onClick={() => setEditandoBio(false)} className="text-[11px] text-red-500 font-medium">cancelar</button>
+          )}
         </div>
-        {usuario?.experiencias || usuario?.bio || usuario?.sobre ? (
-          <p className="mt-3 text-[12px] leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">{usuario.experiencias || usuario.bio || usuario.sobre}</p>
+
+        {!editandoBio ? (
+          usuario?.experiencias || usuario?.bio || usuario?.sobre ? (
+            <p className="text-[12px] leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">{usuario.experiencias || usuario.bio || usuario.sobre}</p>
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-center">
+              <p className="text-[11px] font-medium text-amber-800">Bio vazia</p>
+              <p className="text-[11px] mt-1 text-amber-700">Bio completa tem 3x mais chance de ser aceito</p>
+              <button onClick={() => setEditandoBio(true)} className="mt-3 bg-slate-900 text-white px-4 py-2 rounded-full text-[11px] font-medium">Adicionar bio agora</button>
+            </div>
+          )
         ) : (
-          <div className="mt-3 bg-amber-50 border border-amber-200 p-3 rounded-xl text-center">
-            <p className="text-[11px] font-medium text-amber-800">Bio vazia</p>
-            <p className="text-[11px] mt-1 text-amber-700">Bio completa tem 3x mais chance de ser aceito</p>
-            <button onClick={onEditar} className="mt-3 bg-slate-900 text-white px-4 py-2 rounded-full text-[11px] font-medium">Adicionar bio</button>
+          <div className="space-y-2 mt-2">
+            <textarea
+              rows={4}
+              value={textoBio}
+              onChange={(e) => setTextoBio(e.target.value)}
+              placeholder="Escreva um pouco sobre sua experiência e serviços..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-[12px] outline-none focus:border-slate-900"
+            />
+            <button
+              onClick={salvarBioInline}
+              disabled={salvandoBio}
+              className="w-full h-10 bg-slate-900 text-white rounded-xl text-[12px] font-bold disabled:opacity-50"
+            >
+              {salvandoBio ? "Salvando..." : "Salvar Bio"}
+            </button>
           </div>
         )}
       </div>

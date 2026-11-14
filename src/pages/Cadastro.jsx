@@ -31,7 +31,7 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
     await setDoc(ref, {
       nome: form.nome || user.displayName || "Cliente",
       email: form.email || user.email,
-      zap: form.zap,
+      contato: form.zap || dadosExtra.zap || "",
       cidade: "Sinop",
       feedCidade: "Sinop",
       feedEstado: "MT",
@@ -62,15 +62,24 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
   };
 
   const entrarComGoogle = async () => {
-    if (!form.zap.trim()) return alert("Digite seu WhatsApp com DDD antes de entrar com Google");
     if (!aceitaTermos || !aceitaPrivacidade) return alert("Você precisa aceitar os Termos de Uso e Política de Privacidade para continuar");
+    
     setSalvando(true);
     try {
       const cred = await signInWithPopup(auth, googleProvider);
-      const nome = form.nome || cred.user.displayName || "Cliente";
-      await salvarNoFirestore(cred.user, { nome, zap: form.zap });
-      localStorage.setItem("usuario_diariafacil", JSON.stringify({ nome, email: cred.user.email, zap: form.zap }));
-      onEntrar({ nome, email: cred.user.email, zap: form.zap });
+      const user = cred.user;
+      
+      // Pega o WhatsApp digitado ou usa vazio caso não tenha preenchido na caixa de texto
+      const zapFinal = form.zap.trim() || "";
+      const nomeFinal = form.nome.trim() || user.displayName || "Cliente";
+
+      await salvarNoFirestore(user, { nome: nomeFinal, zap: zapFinal, email: user.email, foto: user.photoURL || "" });
+      
+      const dadosUsuario = { nome: nomeFinal, email: user.email, zap: zapFinal, foto: user.photoURL || "" };
+      localStorage.setItem("usuario_diariafacil", JSON.stringify(dadosUsuario));
+      
+      // Chama o onEntrar para redirecionar direto para o feed
+      onEntrar(dadosUsuario);
     } catch (e) {
       alert("Erro Google: " + e.message);
     }
@@ -95,7 +104,7 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
             <p className="text-[10px] tracking-widest uppercase text-slate-400 font-medium">Passo 1 de 1</p>
           </div>
           <h2 className="text-[20px] font-semibold tracking-tight mt-5 leading-none">Criar conta</h2>
-          <p className="text-[12px] text-slate-500 mt-2">Pra esconder seu zap até aprovação</p>
+          <p className="text-[12px] text-slate-500 mt-2">crie uma conta com seus dados basicos e depois complete seu perfil na tela "perfil"</p>
           
           <button onClick={entrarComGoogle} disabled={salvando} className="mt-5 w-full bg-white border border-slate-200 hover:border-slate-300 text-slate-900 h-11 rounded-full text-[13px] font-medium flex items-center justify-center gap-2 disabled:opacity-50">
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-4 h-4" />

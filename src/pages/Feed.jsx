@@ -22,6 +22,16 @@ const formatarDataLocal = (date) => {
   return `${y}-${m}-${d}`;
 };
 
+// Função para embaralhar a lista de forma aleatória (Fisher-Yates)
+const embaralharArray = (array) => {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
+
 // ===== COMPONENTE DO BANNER DO TOPO (SEMPRE VISÍVEL E FIXO) =====
 function BannerTopo() {
   const [banners, setBanners] = useState([]);
@@ -29,7 +39,6 @@ function BannerTopo() {
   const [carregouBanco, setCarregouBanco] = useState(false);
 
   useEffect(() => {
-    // Busca sem where+orderBy juntos para evitar bloqueio de índice no Firestore
     const q = query(collection(db, "banners_topo"));
     const unsub = onSnapshot(q, (snap) => {
       const agora = new Date();
@@ -46,14 +55,8 @@ function BannerTopo() {
           }
         });
 
-      // Ordena no front-end do mais novo para o mais antigo
-      lista.sort((a, b) => {
-        const dataA = a.criadoEm?.toMillis ? a.criadoEm.toMillis() : 0;
-        const dataB = b.criadoEm?.toMillis ? b.criadoEm.toMillis() : 0;
-        return dataB - dataA;
-      });
-
-      setBanners(lista);
+      // Embaralha aleatoriamente e define no estado
+      setBanners(embaralharArray(lista));
       setIndex(0);
       setCarregouBanco(true);
     }, (err) => {
@@ -72,7 +75,6 @@ function BannerTopo() {
     return () => clearInterval(t);
   }, [banners.length]);
 
-  // Se ainda está carregando ou não há banner ativo no banco, exibe um espaço reservado fixo
   if (banners.length === 0) {
     if (!carregouBanco) {
       return (
@@ -97,21 +99,31 @@ function BannerTopo() {
     );
   }
 
+  // Modos de ajuste: "cover", "contain" ou "fill" configurados no banner
+  const modoAjuste = banner.objectFit || banner.modoExibicao || "cover";
+  const alturaBanner = banner.altura || "h-[90px] sm:h-[110px]";
+
+  const classeAjuste = modoAjuste === "contain" 
+    ? "object-contain" 
+    : modoAjuste === "fill" 
+    ? "object-fill" 
+    : "object-cover";
+
   return (
     <div className="sticky top-0 z-30 w-full bg-black -mx-4 mb-4 shadow-md">
-      <div className="max-w-[640px] mx-auto relative">
-        <a href={banner.link || "#"} target="_blank" rel="noopener noreferrer" className="block">
+      <div className={`w-full max-w-[640px] mx-auto relative overflow-hidden ${alturaBanner}`}>
+        <a href={banner.link || "#"} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
           <img
             src={banner.imagem}
             alt={banner.titulo || "Destaque"}
-            className="w-full h-[90px] sm:h-[110px] object-cover mx-auto"
+            className={`w-full h-full ${classeAjuste} block mx-auto`}
           />
         </a>
-        <span className="absolute top-1.5 left-2 text-[8px] font-bold bg-black/70 text-white px-1.5 py-0.5 rounded">
+        <span className="absolute top-1.5 left-2 text-[8px] font-bold bg-black/70 text-white px-1.5 py-0.5 rounded z-10">
           ANÚNCIO
         </span>
         {banners.length > 1 && (
-          <div className="absolute bottom-1.5 right-2 flex gap-1">
+          <div className="absolute bottom-1.5 right-2 flex gap-1 z-10">
             {banners.map((_, idx) => (
               <span
                 key={idx}
@@ -338,7 +350,7 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
               {termo ? `Nenhuma vaga em ${cidadeFiltro} para "${termo}"` : `Nenhuma vaga disponível em ${cidadeFiltro} no momento.`}
             </p>
             <p className="text-[11px] text-slate-400 mt-1">
-              Você pode trocar a cidade no seu Perfil para ver vagas de outras regiões.
+              Você pode trocar a cidade no seu Perfil para ver vagas de outras cidades.
             </p>
             {termo && (
               <button onClick={() => setBusca("")} className="mt-3 text-[11px] underline text-slate-500">Limpar pesquisa</button>

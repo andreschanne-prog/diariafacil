@@ -8,6 +8,7 @@ import Header from "./components/Header"
 import Feed from "./pages/Feed"
 import CriarVaga from "./pages/CriarVaga"
 import Perfil from "./pages/Perfil"
+import Contatos from "./pages/Contatos"
 import Cadastro from "./pages/Cadastro"
 import EditarPerfil from "./pages/EditarPerfil"
 import Login from "./pages/Login"
@@ -37,6 +38,7 @@ export default function App() {
   const [anunciosBrutos, setAnunciosBrutos] = useState([])
   const [visitanteId, setVisitanteId] = useState(null)
   const [visitanteData, setVisitanteData] = useState(null)
+  const [candidatoParaSalvar, setCandidatoParaSalvar] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [termosAceito, setTermosAceito] = useState(false)
   const [privacidadeAceita, setPrivacidadeAceita] = useState(false)
@@ -225,6 +227,12 @@ export default function App() {
     setTela("visitante")
   }
 
+  const abrirContatos = (candidato = null) => {
+    setTelaAnterior(tela)
+    if (candidato) setCandidatoParaSalvar(candidato)
+    setTela("contatos")
+  }
+
   const irParaTermos = (tipo) => { setTelaAnterior(tela); setTela(tipo) }
 
   if(carregandoAuth) return <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-[13px] text-slate-500">Carregando...</div>
@@ -306,10 +314,49 @@ export default function App() {
         </div>
       )}
       <Header onPostar={()=>setTela("criar")} usuario={usuario} isAdmin={isAdmin} onAdmin={()=>setTela("admin")} />
-      {tela === "feed" && <><Feed vagas={feedVagas} anuncios={anuncios} cidadeFiltro={cidadeFiltro} estadoFiltro={estadoFiltro} onVerPerfil={abrirPerfilVisitante} /><Footer /></>}
+      
+      {tela === "feed" && (
+        <>
+          <Feed 
+            vagas={feedVagas} 
+            anuncios={anuncios} 
+            cidadeFiltro={cidadeFiltro} 
+            estadoFiltro={estadoFiltro} 
+            onVerPerfil={abrirPerfilVisitante}
+            onAbrirContatos={() => abrirContatos()}
+          />
+          <Footer />
+        </>
+      )}
+
       {tela === "criar" && <CriarVaga onVoltar={()=>setTela("feed")} onSucesso={()=>setTela("feed")} usuario={usuario} />}
-      {tela === "minhas" && <><MinhasVagas vagas={minhasVagasFiltradas} usuario={usuario} onVerPerfil={abrirPerfilVisitante} /><Footer /></>}
+      
+      {tela === "minhas" && (
+        <>
+          <MinhasVagas 
+            vagas={minhasVagasFiltradas} 
+            usuario={usuario} 
+            onVerPerfil={abrirPerfilVisitante}
+            onSalvarContato={(candidato) => abrirContatos(candidato)}
+          />
+          <Footer />
+        </>
+      )}
+
       {tela === "aceitas" && <><VagasAceitas vagas={vagas} usuario={usuario} /><Footer /></>}
+      
+      {tela === "contatos" && (
+        <>
+          <Contatos
+            onVoltar={() => setTela("perfil")}
+            onVerPerfil={abrirPerfilVisitante}
+            candidatoParaSalvar={candidatoParaSalvar}
+            onLimparCandidato={() => setCandidatoParaSalvar(null)}
+          />
+          <Footer />
+        </>
+      )}
+
       {tela === "visitante" && (
         <PerfilVisitante 
           usuarioId={visitanteId} 
@@ -318,6 +365,7 @@ export default function App() {
           onVoltar={()=>setTela(telaAnterior)} 
         />
       )}
+
       {tela === "admin" && (
         <Admin 
           onVoltar={()=>setTela("feed")} 
@@ -326,6 +374,7 @@ export default function App() {
           onVerPerfil={abrirPerfilVisitante}
         />
       )}
+
       {tela === "criarAnuncio" && <CriarAnuncio anuncioParaEditar={anuncioEditando} onVoltar={()=>setTela("admin")} />}
       
       {tela === "deletar" && <DeletarConta />}
@@ -338,8 +387,9 @@ export default function App() {
             usuario={usuario} 
             onSair={()=>{ auth.signOut(); setLogado(false) }} 
             onEditar={()=>setTela("editar")} 
+            onContatos={()=>abrirContatos()}
             onDeletar={()=>setTela("deletar")} 
-            onSuporte={()=>setTela("suporte")} 
+            onSuporte={()=>{ setTelaAnterior("perfil"); setTela("suporte"); }} 
             onAnuncio={()=>setTela("anuncio")}
             onSalvarCidade={(novosDados) => {
               setUsuario(prev => ({ ...prev, ...novosDados }))
@@ -350,6 +400,7 @@ export default function App() {
       )}
 
       {tela === "editar" && <EditarPerfil usuario={usuario} onVoltar={()=>setTela("perfil")} onSalvar={(d)=>{ setUsuario({...usuario, ...d}); setTela("perfil") }} />}
+      
       {tela === "suporte" && (
         <div className="max-w-[600px] mx-auto min-h-screen bg-white p-6">
           <button onClick={()=>setTela(telaAnterior)} className="w-9 h-9 border border-slate-200 rounded-full text-[13px]">←</button>
@@ -364,9 +415,9 @@ export default function App() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-2 py-3 flex justify-center z-50">
         <div className="flex items-center gap-1 bg-slate-100 rounded-full p-1">
-          {navItem("feed","vagas")}
-          {navItem("minhas","Anuncios")}
-          {navItem("aceitas","Aceitas",aceitasCount)}
+          {navItem("feed","Início")}
+          {navItem("minhas","Anúncios")}
+          {navItem("aceitas","Notificação",aceitasCount)}
           {navItem("perfil","Perfil")}
         </div>
       </div>
