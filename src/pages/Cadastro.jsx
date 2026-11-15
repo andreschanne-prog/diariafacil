@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createUserWithEmailAndPassword, updateProfile, signInWithPopup } from "firebase/auth";
 import { auth, googleProvider, db } from "../firebase.js";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivacidade, onAbrirTermos, termosJaAceito, privacidadeJaAceita }) {
@@ -28,6 +28,19 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
 
   const salvarNoFirestore = async (user, dadosExtra = {}) => {
     const ref = doc(db, "usuarios", user.uid);
+    const snap = await getDoc(ref);
+    
+    // Se já existe, não apaga o zap que ele já tinha
+    if (snap.exists()) {
+      await setDoc(ref, {
+        termosAceitos: true,
+        privacidadeAceita: true,
+        dataAceite: new Date(),
+        ...dadosExtra
+      }, { merge: true });
+      return snap.data();
+    }
+
     await setDoc(ref, {
       nome: form.nome || user.displayName || "Cliente",
       email: form.email || user.email,
@@ -40,6 +53,8 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
       privacidadeAceita: true,
       dataAceite: new Date(),
       criadoEm: new Date(),
+      idade: null, // <- DEIXA ABERTO
+      provedor: dadosExtra.provedor || "email",
       ...dadosExtra
     }, { merge: true });
   };
@@ -51,7 +66,7 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
     try {
       const cred = await createUserWithEmailAndPassword(auth, form.email.trim(), form.senha);
       await updateProfile(cred.user, { displayName: form.nome.trim() });
-      await salvarNoFirestore(cred.user);
+      await salvarNoFirestore(cred.user, { provedor: "email" });
       localStorage.setItem("usuario_diariafacil", JSON.stringify({ nome: form.nome, email: form.email, zap: form.zap }));
       onEntrar({ nome: form.nome, email: form.email, zap: form.zap });
     } catch (e) {
@@ -61,25 +76,54 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
     setSalvando(false);
   };
 
+  // ====== CORRIGIDO AQUI ======
   const entrarComGoogle = async () => {
-    if (!aceitaTermos || !aceitaPrivacidade) return alert("Você precisa aceitar os Termos de Uso e Política de Privacidade para continuar");
+    if (!aceitaTermos || !aceitaPrivacidade) return alert("Você precisa aceitar os Termos e Privacidade");
     
     setSalvando(true);
     try {
       const cred = await signInWithPopup(auth, googleProvider);
       const user = cred.user;
       
-      // Pega o WhatsApp digitado ou usa vazio caso não tenha preenchido na caixa de texto
-      const zapFinal = form.zap.trim() || "";
-      const nomeFinal = form.nome.trim() || user.displayName || "Cliente";
+      const userRef = doc(db, "usuarios", user.uid);
+      const userSnap = await getDoc(userRef);
 
-      await salvarNoFirestore(user, { nome: nomeFinal, zap: zapFinal, email: user.email, foto: user.photoURL || "" });
-      
-      const dadosUsuario = { nome: nomeFinal, email: user.email, zap: zapFinal, foto: user.photoURL || "" };
+      if (userSnap.exists()) {
+        // USUÁRIO ANTIGO -> entra direto, não pede nada
+        const dadosExistentes = userSnap.data();
+        const dadosUsuario = { 
+          nome: dadosExistentes.nome, 
+          email: dadosExistentes.email, 
+          zap: dadosExistentes.contato || "",
+          foto: dadosExistentes.foto || user.photoURL || "" 
+        };
+        localStorage.setItem("usuario_diariafacil", JSON.stringify(dadosUsuario));
+        onEntrar(dadosUsuario);
+        return;
+      }
+
+      // USUÁRIO NOVO DO GOOGLE -> cria sem precisar de zap/idade
+      const nomeFinal = user.displayName || "Cliente";
+      await setDoc(userRef, {
+        nome: nomeFinal,
+        email: user.email,
+        contato: form.zap.trim() || "", // opcional, se digitou usa, se não deixa vazio
+        cidade: "Sinop",
+        feedCidade: "Sinop",
+        feedEstado: "MT",
+        foto: user.photoURL || "",
+        idade: null,
+        termosAceitos: true,
+        privacidadeAceita: true,
+        dataAceite: new Date(),
+        criadoEm: new Date(),
+        provedor: "google"
+      });
+
+      const dadosUsuario = { nome: nomeFinal, email: user.email, zap: form.zap.trim() || "", foto: user.photoURL || "" };
       localStorage.setItem("usuario_diariafacil", JSON.stringify(dadosUsuario));
-      
-      // Chama o onEntrar para redirecionar direto para o feed
       onEntrar(dadosUsuario);
+
     } catch (e) {
       alert("Erro Google: " + e.message);
     }
@@ -120,45 +164,22 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
           <div className="space-y-3">
             <input value={form.nome} onChange={e=>setForm({...form, nome:e.target.value})} placeholder="Seu nome" className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
             <input value={form.email} onChange={e=>setForm({...form, email:e.target.value})} placeholder="Seu email" type="email" className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
-            <input value={form.zap} onChange={e=>setForm({...form, zap:e.target.value})} placeholder="WhatsApp com DDD - 66..." className="w-full bg-slate-50 border border-orange-200 h-11 rounded-xl px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
+            <input value={form.zap} onChange={e=>setForm({...form, zap:e.target.value})} placeholder="WhatsApp (opcional p/ Google)" className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl px-4 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
             
             <div className="grid grid-cols-2 gap-3">
-              {/* Campo Senha */}
               <div>
                 <div className="relative">
-                  <input 
-                    value={form.senha} 
-                    onChange={e=>setForm({...form, senha:e.target.value})} 
-                    placeholder="Senha" 
-                    type={mostrarSenha ? "text" : "password"} 
-                    className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl pl-3 pr-9 text-[13px] outline-none focus:border-slate-900 focus:bg-white" 
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setMostrarSenha(!mostrarSenha)} 
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 focus:outline-none"
-                  >
+                  <input value={form.senha} onChange={e=>setForm({...form, senha:e.target.value})} placeholder="Senha" type={mostrarSenha ? "text" : "password"} className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl pl-3 pr-9 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
+                  <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 focus:outline-none">
                     {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
                 <p className="text-[9px] text-slate-400 mt-1 px-1">Mínimo 6 dígitos</p>
               </div>
-
-              {/* Campo Confirmar Senha */}
               <div>
                 <div className="relative">
-                  <input 
-                    value={form.confirmarSenha} 
-                    onChange={e=>setForm({...form, confirmarSenha:e.target.value})} 
-                    placeholder="Repetir senha" 
-                    type={mostrarConfirmarSenha ? "text" : "password"} 
-                    className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl pl-3 pr-9 text-[13px] outline-none focus:border-slate-900 focus:bg-white" 
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setMostrarConfirmarSenha(!mostrarConfirmarSenha)} 
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 focus:outline-none"
-                  >
+                  <input value={form.confirmarSenha} onChange={e=>setForm({...form, confirmarSenha:e.target.value})} placeholder="Repetir senha" type={mostrarConfirmarSenha ? "text" : "password"} className="w-full bg-slate-50 border border-slate-200 h-11 rounded-xl pl-3 pr-9 text-[13px] outline-none focus:border-slate-900 focus:bg-white" />
+                  <button type="button" onClick={() => setMostrarConfirmarSenha(!mostrarConfirmarSenha)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 focus:outline-none">
                     {mostrarConfirmarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
@@ -166,7 +187,6 @@ export default function Cadastro({ onEntrar, onVoltar, onVerTermos, onVerPrivaci
             </div>
           </div>
 
-          {/* TERMOS */}
           <div className="mt-5 space-y-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
             <div className="flex items-start gap-2">
               <input type="checkbox" checked={aceitaTermos} onChange={e=>setAceitaTermos(e.target.checked)} className="mt-[2px] w-4 h-4 accent-slate-900" />

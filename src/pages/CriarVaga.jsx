@@ -55,6 +55,7 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
     return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   });
   const [mostrarCalendario, setMostrarCalendario] = useState(true);
+  const [isRelampago, setIsRelampago] = useState(false);
 
   const hojeLocal = new Date();
   hojeLocal.setHours(0,0,0,0);
@@ -85,7 +86,6 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
   const handleSelecionarFoto = (e) => {
     const arquivo = e.target.files[0];
     if (!arquivo) return;
-
     const reader = new FileReader();
     reader.onload = (evento) => {
       const img = new Image();
@@ -95,7 +95,6 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
         const MAX_HEIGHT = 800;
         let width = img.width;
         let height = img.height;
-
         if (width > height) {
           if (width > MAX_WIDTH) {
             height *= MAX_WIDTH / width;
@@ -107,12 +106,10 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
             height = MAX_HEIGHT;
           }
         }
-
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
-
         const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
         setFotoUrl(dataUrl);
       };
@@ -146,7 +143,6 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
     if (diasSelecionados.length === 0 && datasCalendario.length === 0) {
       return alert("Escolha os dias da semana ou selecione datas no calendário.");
     }
-
     const user = auth.currentUser;
     if(!user?.uid) return alert("Erro: não logado");
 
@@ -163,7 +159,12 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
         candidatos: [],
         status: "aberta",
         fechada: false,
+        urgente: isRelampago,
+        relampago: isRelampago,
+        tipoOferta: isRelampago ? "relampago" : "normal",
+        prioridade: isRelampago ? 10 : 0,
         criadoEm: serverTimestamp(),
+        expiraEm: isRelampago ? new Date(Date.now() + 24*60*60*1000) : null,
         anuncianteId: user.uid,
         anuncianteEmail: (user.email || usuario?.email || "").toLowerCase(),
         anuncianteNome: user.displayName || usuario?.nome || "Anunciante",
@@ -172,7 +173,7 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
         estado: form.estado,
         cidadeCompleta: `${form.cidade} / ${form.estado} ${form.bairro ? `- ${form.bairro}` : ""}`.trim(),
       });
-      alert("Vaga postada com sucesso!");
+      alert(isRelampago ? "⚡ Oferta relâmpago postada!" : "Vaga postada com sucesso!");
       if (onSucesso) onSucesso();
       if (onVoltar) onVoltar();
     } catch (e) {
@@ -188,28 +189,69 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
       <p className="text-[11px] opacity-60 mt-2">Hoje é {hojeLocal.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'})}</p>
       
       <div className="mt-6 space-y-4">
-        <input value={form.titulo} onChange={e=>setForm({...form, titulo:e.target.value})} placeholder="Ex: Preciso de 2 diaristas" className="w-full bg-white border p-4 rounded-2xl outline-none text-[14px] font-medium shadow-sm" />
+        <div className={`border-2 p-4 rounded-2xl shadow-sm transition-all ${isRelampago ? "bg-red-50 border-red-500 ring-2 ring-red-200" : "bg-white border-slate-200"}`}>
+          <div className="flex justify-between items-center">
+            <div>
+              <p className={`text-[12px] font-black flex items-center gap-1 ${isRelampago ? "text-red-600" : "text-slate-900"}`}>⚡ OFERTA RELÂMPAGO</p>
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">Precisa de substituto urgente? Ative e seu post terá preferência no feed</p>
+            </div>
+            <button onClick={()=>setIsRelampago(!isRelampago)} className={`w-12 h-7 rounded-full p-1 transition-all flex items-center ${isRelampago ? "bg-red-600 justify-end" : "bg-slate-200 justify-start"}`}>
+              <div className="w-5 h-5 bg-white rounded-full shadow-sm"></div>
+            </button>
+          </div>
+          {isRelampago && <p className="mt-3 text-[10px] font-bold bg-red-600 text-white px-3 py-1.5 rounded-full inline-block animate-pulse">Vamos ajudar você a encontrar um substituto rápido!</p>}
+        </div>
+
+        <input value={form.titulo} onChange={e=>setForm({...form, titulo:e.target.value})} placeholder="Ex: Preciso de 2 diaristas URGENTE hoje" className={`w-full bg-white border p-4 rounded-2xl outline-none text-[14px] font-medium shadow-sm ${isRelampago ? "border-red-300" : ""}`} />
+
+        {/* ===== NOVO: SELETOR DE GÊNERO ===== */}
+        <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-3">
+          <p className="text-[10px] font-black tracking-widest opacity-40">PARA QUEM É A VAGA?</p>
+          <div className="grid grid-cols-3 gap-2">
+            <button 
+              type="button" 
+              onClick={()=>setForm({...form, genero: "homem"})} 
+              className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${form.genero === "homem" ? "bg-blue-600 border-blue-600 text-white shadow-md scale-[1.02]" : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"}`}
+            >
+              <span className="text-[18px]">Preferência:</span>
+              <span className="text-[11px] font-black">HOMEM</span>
+            </button>
+
+            <button 
+              type="button" 
+              onClick={()=>setForm({...form, genero: "mulher"})} 
+              className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${form.genero === "mulher" ? "bg-pink-600 border-pink-600 text-white shadow-md scale-[1.02]" : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"}`}
+            >
+              <span className="text-[18px]">Preferência:</span>
+              <span className="text-[11px] font-black">MULHER</span>
+            </button>
+
+            <button 
+              type="button" 
+              onClick={()=>setForm({...form, genero: "ambos"})} 
+              className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${form.genero === "ambos" ? "bg-black border-black text-white shadow-md scale-[1.02]" : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"}`}
+            >
+              <span className="text-[18px]">Preferência:</span>
+              <span className="text-[11px] font-black">AMBOS</span>
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-500 text-center">
+            {form.genero === "homem" ? "✓ Só homens verão essa vaga em destaque" : form.genero === "mulher" ? "✓ Só mulheres verão essa vaga em destaque" : "✓ Aberta para todos"}
+          </p>
+        </div>
 
         <div className="bg-white border p-4 rounded-2xl shadow-sm space-y-3">
           <p className="text-[10px] font-black tracking-widest opacity-40">FOTO DA VAGA (OPCIONAL)</p>
-          
           {fotoUrl ? (
             <div className="relative w-full h-48 bg-zinc-100 rounded-xl overflow-hidden border">
               <img src={fotoUrl} alt="Pré-visualização" className="w-full h-full object-cover" />
-              <button 
-                type="button" 
-                onClick={() => setFotoUrl("")} 
-                className="absolute top-2 right-2 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full font-bold"
-              >
-                Remover / Trocar
-              </button>
+              <button type="button" onClick={() => setFotoUrl("")} className="absolute top-2 right-2 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full font-bold">Remover / Trocar</button>
             </div>
           ) : (
             <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-zinc-300 rounded-xl cursor-pointer bg-zinc-50 hover:bg-zinc-100 transition-all">
               <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
                 <span className="text-2xl mb-1">📷</span>
                 <p className="text-xs font-bold text-zinc-700">Toque para escolher da galeria ou tirar foto</p>
-                <p className="text-[10px] text-zinc-400 mt-1">Ajuste automático de proporção</p>
               </div>
               <input type="file" accept="image/*" onChange={handleSelecionarFoto} className="hidden" />
             </label>
@@ -232,17 +274,13 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
         <div className="bg-white border p-3 rounded-2xl shadow-sm space-y-3">
           <div className="flex justify-between items-center">
             <p className="text-[10px] font-black tracking-widest opacity-40">QUANDO PRECISA?</p>
-            <button onClick={()=>setMostrarCalendario(!mostrarCalendario)} className="text-[11px] font-bold bg-black text-white px-3 py-1 rounded-full">
-              {mostrarCalendario ? "Fechar ✕" : "📅 Calendário"}
-            </button>
+            <button onClick={()=>setMostrarCalendario(!mostrarCalendario)} className="text-[11px] font-bold bg-black text-white px-3 py-1 rounded-full">{mostrarCalendario ? "Fechar ✕" : "📅 Calendário"}</button>
           </div>
-
           <div className="grid grid-cols-7 gap-1">
             {DIAS_SEMANA.map(d => (
               <button key={d.id} type="button" onClick={()=>toggleDia(d.id)} className={`py-2.5 rounded-xl font-bold text-[12px] border-2 ${diasSelecionados.includes(d.id) ? "bg-black text-white border-black" : "bg-zinc-50 border-transparent"}`}>{d.label}</button>
             ))}
           </div>
-
           {mostrarCalendario && (
             <div className="border-t pt-3">
               <div className="flex justify-between items-center mb-3">
@@ -250,9 +288,7 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
                 <p className="font-black text-[13px] capitalize bg-black text-white px-3 py-1 rounded-full">{mesAtual.toLocaleDateString('pt-BR', {month:'long', year:'numeric'})}</p>
                 <button onClick={()=>setMesAtual(new Date(mesAtual.getFullYear(), mesAtual.getMonth()+1))} className="w-9 h-9 bg-zinc-100 rounded-full font-bold">›</button>
               </div>
-              <div className="grid grid-cols-7 gap-1 text-center text-[10px] opacity-40 font-bold mb-2">
-                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
-              </div>
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] opacity-40 font-bold mb-2"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
               <div className="grid grid-cols-7 gap-1.5">
                 {diasDoMes().map((dia, i) => {
                   if(!dia) return <div key={i}></div>
@@ -260,26 +296,11 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
                   const selecionado = datasCalendario.includes(str)
                   const isHoje = dia.toDateString() === hojeLocal.toDateString()
                   const passado = dia < hojeLocal
-                  return (
-                    <button key={i} disabled={passado} onClick={()=>toggleDataCalendario(str)} className={`h-10 rounded-xl text-[13px] font-bold border-2 transition-all ${passado ? "opacity-20 bg-zinc-50" : ""} ${selecionado ? "bg-black text-white border-black scale-105" : isHoje ? "bg-amber-100 border-amber-400 text-black" : "bg-white border-zinc-100"}`}>
-                      {dia.getDate()}
-                    </button>
-                  )
+                  return <button key={i} disabled={passado} onClick={()=>toggleDataCalendario(str)} className={`h-10 rounded-xl text-[13px] font-bold border-2 transition-all ${passado ? "opacity-20 bg-zinc-50" : ""} ${selecionado ? "bg-black text-white border-black scale-105" : isHoje ? "bg-amber-100 border-amber-400 text-black" : "bg-white border-zinc-100"}`}>{dia.getDate()}</button>
                 })}
               </div>
-              <div className="flex gap-2 mt-3">
-                <button onClick={()=>{ const hojeStr = formatarDataLocal(hojeLocal); if(!datasCalendario.includes(hojeStr)) setDatasCalendario([...datasCalendario, hojeStr])}} className="flex-1 py-2 bg-amber-100 border border-amber-300 rounded-full text-[11px] font-bold">Hoje {hojeLocal.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}</button>
-                <button onClick={()=>{ const amanha = new Date(hojeLocal); amanha.setDate(amanha.getDate()+1); const str = formatarDataLocal(amanha); if(!datasCalendario.includes(str)) setDatasCalendario([...datasCalendario, str])}} className="flex-1 py-2 bg-zinc-100 border rounded-full text-[11px] font-bold">próximo dia útil</button>
-                <button onClick={()=>setDatasCalendario([])} className="px-3 py-2 bg-white border rounded-full text-[11px]">Limpar</button>
-              </div>
-              {datasCalendario.length > 0 && (
-                <p className="text-[11px] mt-3 bg-black text-white rounded-full px-3 py-2 text-center font-bold">
-                  {datasCalendario.length} dias: {datasCalendario.sort().map(d=>{ const [y,m,day] = d.split('-'); return `${day}/${m}` }).join(", ")}
-                </p>
-              )}
             </div>
           )}
-
           <select value={form.periodo} onChange={e=>setForm({...form, periodo:e.target.value})} className="w-full bg-zinc-100 p-3 rounded-xl text-sm font-bold outline-none">
             <option value="manhã">Vespertino (7h-11h)</option>
             <option value="tarde">Matutino (13h-17h)</option>
@@ -302,8 +323,8 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
 
         <input value={form.zap} onChange={e=>setForm({...form, zap:e.target.value})} placeholder="celular com DDD - 6691234-5678" className="w-full bg-white border p-4 rounded-2xl outline-none border-orange-200 shadow-sm" />
         
-        <button onClick={postar} disabled={salvando} className="w-full bg-black text-white py-5 rounded-full font-black disabled:opacity-50">
-          {salvando ? "POSTANDO..." : "POSTAR"}
+        <button onClick={postar} disabled={salvando} className={`w-full py-5 rounded-full font-black disabled:opacity-50 transition-all ${isRelampago ? "bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-200" : "bg-black text-white"}`}>
+          {salvando ? "POSTANDO..." : isRelampago ? " POSTAR OFERTA RELÂMPAGO" : "POSTAR"}
         </button>
       </div>
     </div>

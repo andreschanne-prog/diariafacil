@@ -4,7 +4,6 @@ import { db, auth } from "../firebase.js";
 import CardVaga from "../components/CardVaga";
 import CardAnuncio from "../components/CardAnuncio";
 
-// Função auxiliar para normalizar nomes de cidades
 const normalizarTexto = (txt) => {
   if (!txt) return "";
   return txt
@@ -14,7 +13,6 @@ const normalizarTexto = (txt) => {
     .trim();
 };
 
-// Data local no formato YYYY-MM-DD (sem erros de fuso horário)
 const formatarDataLocal = (date) => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -22,7 +20,6 @@ const formatarDataLocal = (date) => {
   return `${y}-${m}-${d}`;
 };
 
-// Função para embaralhar a lista de forma aleatória (Fisher-Yates)
 const embaralharArray = (array) => {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
@@ -32,7 +29,6 @@ const embaralharArray = (array) => {
   return arr;
 };
 
-// ===== COMPONENTE DO BANNER DO TOPO (SEMPRE VISÍVEL E FIXO) =====
 function BannerTopo() {
   const [banners, setBanners] = useState([]);
   const [index, setIndex] = useState(0);
@@ -54,8 +50,6 @@ function BannerTopo() {
             return true;
           }
         });
-
-      // Embaralha aleatoriamente e define no estado
       setBanners(embaralharArray(lista));
       setIndex(0);
       setCarregouBanco(true);
@@ -63,7 +57,6 @@ function BannerTopo() {
       console.error("Erro ao carregar banners:", err);
       setCarregouBanco(true);
     });
-
     return () => unsub();
   }, []);
 
@@ -87,7 +80,6 @@ function BannerTopo() {
   }
 
   const banner = banners[index] || banners[0];
-
   if (banner.tipo === "adsense") {
     return (
       <div className="sticky top-0 z-30 w-full bg-white/95 backdrop-blur border-b border-slate-200 flex justify-center -mx-4 mb-4 shadow-sm">
@@ -99,36 +91,21 @@ function BannerTopo() {
     );
   }
 
-  // Modos de ajuste: "cover", "contain" ou "fill" configurados no banner
   const modoAjuste = banner.objectFit || banner.modoExibicao || "cover";
   const alturaBanner = banner.altura || "h-[90px] sm:h-[110px]";
-
-  const classeAjuste = modoAjuste === "contain" 
-    ? "object-contain" 
-    : modoAjuste === "fill" 
-    ? "object-fill" 
-    : "object-cover";
+  const classeAjuste = modoAjuste === "contain" ? "object-contain" : modoAjuste === "fill" ? "object-fill" : "object-cover";
 
   return (
     <div className="sticky top-0 z-30 w-full bg-black -mx-4 mb-4 shadow-md">
       <div className={`w-full max-w-[640px] mx-auto relative overflow-hidden ${alturaBanner}`}>
         <a href={banner.link || "#"} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-          <img
-            src={banner.imagem}
-            alt={banner.titulo || "Destaque"}
-            className={`w-full h-full ${classeAjuste} block mx-auto`}
-          />
+          <img src={banner.imagem} alt={banner.titulo || "Destaque"} className={`w-full h-full ${classeAjuste} block mx-auto`} />
         </a>
-        <span className="absolute top-1.5 left-2 text-[8px] font-bold bg-black/70 text-white px-1.5 py-0.5 rounded z-10">
-          ANÚNCIO
-        </span>
+        <span className="absolute top-1.5 left-2 text-[8px] font-bold bg-black/70 text-white px-1.5 py-0.5 rounded z-10">ANÚNCIO</span>
         {banners.length > 1 && (
           <div className="absolute bottom-1.5 right-2 flex gap-1 z-10">
             {banners.map((_, idx) => (
-              <span
-                key={idx}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${idx === index ? "bg-white w-3" : "bg-white/40"}`}
-              />
+              <span key={idx} className={`w-1.5 h-1.5 rounded-full transition-all ${idx === index ? "bg-white w-3" : "bg-white/40"}`} />
             ))}
           </div>
         )}
@@ -171,33 +148,25 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
     return () => unsub();
   }, [anunciosProp]);
 
-  // Função para atualizar manualmente o feed
   const handleAtualizarFeed = () => {
     setAtualizando(true);
     setBusca("");
-    setTimeout(() => {
-      setAtualizando(false);
-    }, 600);
+    setTimeout(() => { setAtualizando(false); }, 600);
   };
 
-  // VERIFICAÇÃO AUTOMÁTICA DE VAGAS EXPIRADAS E AVISO AO USUÁRIO
   useEffect(() => {
     const listaParaChecar = vagasProp || vagasLocal;
     if (!listaParaChecar || listaParaChecar.length === 0) return;
-
     const hojeStr = formatarDataLocal(new Date());
     const usuarioAtualUid = auth.currentUser?.uid;
-
     listaParaChecar.forEach(async (vaga) => {
       if (vaga.status === "aberta" && !vaga.fechada && vaga.datasEspecificas && vaga.datasEspecificas.length > 0) {
         const datasOrdenadas = [...vaga.datasEspecificas].sort();
         const ultimaData = datasOrdenadas[datasOrdenadas.length - 1];
-
         if (ultimaData < hojeStr) {
           try {
             const vagaRef = doc(db, "vagas", vaga.id);
             await updateDoc(vagaRef, { status: "fechada", fechada: true });
-
             if (usuarioAtualUid && (vaga.anuncianteId === usuarioAtualUid || vaga.uid === usuarioAtualUid)) {
               console.log(`Sua vaga "${vaga.titulo}" expirou e foi fechada automaticamente.`);
             }
@@ -210,30 +179,25 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
   }, [vagasProp, vagasLocal]);
 
   const listaBruta = vagasProp || vagasLocal;
-  
   const cidadeDesejada = normalizarTexto(cidadeFiltro);
   const estadoDesejado = (estadoFiltro || "").toLowerCase().trim();
   const hojeStr = formatarDataLocal(new Date());
 
   const vagasDaCidade = listaBruta.filter(v => {
     if (v.fechada || v.status === "preenchida") return false;
-    
     if (v.datasEspecificas && v.datasEspecificas.length > 0) {
       const datasOrdenadas = [...v.datasEspecificas].sort();
       const ultimaDataStr = datasOrdenadas[datasOrdenadas.length - 1];
       if (ultimaDataStr < hojeStr) return false;
     }
-
     if (v.cidade) {
       const cidadeVaga = normalizarTexto(v.cidade);
       if (cidadeVaga !== cidadeDesejada) return false;
     }
-    
     if (v.estado && estadoDesejado) {
       const estadoVaga = v.estado.toLowerCase().trim();
       if (estadoVaga !== estadoDesejado) return false;
     }
-
     return true;
   });
 
@@ -242,7 +206,6 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
     const estadoAtual = (estadoFiltro || "").toLowerCase().trim();
     const paisAtual = (paisFiltro || "Brasil").toLowerCase().trim();
     const agora = new Date();
-
     return lista.filter(a => {
       if (a.expiraEm) {
         try {
@@ -273,10 +236,21 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
   const anunciosAtivos = filtrarAnunciosPorLocal(listaBrutaAnuncios);
 
   const termo = busca.toLowerCase().trim();
-  const listaFiltrada = vagasDaCidade.filter(v => {
+  let listaFiltrada = vagasDaCidade.filter(v => {
     if (!termo) return true;
     const texto = `${v.titulo || ""} ${v.descricao || ""} ${v.tipo || ""} ${v.categoria || ""} ${v.cidade || ""}`.toLowerCase();
     return texto.includes(termo);
+  });
+
+  // ===== NOVO: ORDENA RELÂMPAGO PRIMEIRO =====
+  listaFiltrada = [...listaFiltrada].sort((a, b) => {
+    const aRel = a.relampago || a.urgente ? 1 : 0;
+    const bRel = b.relampago || b.urgente ? 1 : 0;
+    if (aRel !== bRel) return bRel - aRel; // relâmpago primeiro
+    // desempate por data mais recente
+    const dataA = a.criadoEm?.toMillis ? a.criadoEm.toMillis() : 0;
+    const dataB = b.criadoEm?.toMillis ? b.criadoEm.toMillis() : 0;
+    return dataB - dataA;
   });
 
   const feedMisto = [];
@@ -284,11 +258,7 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
   listaFiltrada.forEach((vaga, i) => {
     feedMisto.push({ tipo: "vaga", data: vaga, id: vaga.id });
     if ((i + 1) % 6 === 0 && anunciosAtivos[anuncioIndex]) {
-      feedMisto.push({
-        tipo: "anuncio",
-        data: anunciosAtivos[anuncioIndex],
-        id: `anuncio-${anunciosAtivos[anuncioIndex].id}-${i}`
-      });
+      feedMisto.push({ tipo: "anuncio", data: anunciosAtivos[anuncioIndex], id: `anuncio-${anunciosAtivos[anuncioIndex].id}-${i}` });
       anuncioIndex++;
       if (anuncioIndex >= anunciosAtivos.length) anuncioIndex = 0;
     }
@@ -305,6 +275,8 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
     );
   }
 
+  const totalRelampago = listaFiltrada.filter(v => v.relampago || v.urgente).length;
+
   return (
     <div className="max-w-[640px] mx-auto px-4 pt-0 pb-28">
       <BannerTopo />
@@ -312,58 +284,39 @@ export default function Feed({ vagas: vagasProp, anuncios: anunciosProp = [], on
       <div className="mb-4 mt-2 flex gap-2">
         <div className="relative flex-1">
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
-          <input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder={`Pesquisar vagas em ${cidadeFiltro}...`}
-            className="w-full h-11 pl-10 pr-10 bg-white border border-slate-200 rounded-full text-[13px] focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900"
-          />
-          {busca && (
-            <button onClick={() => setBusca("")} className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-100 rounded-full text-[11px]">✕</button>
-          )}
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={`Pesquisar vagas em ${cidadeFiltro}...`} className="w-full h-11 pl-10 pr-10 bg-white border border-slate-200 rounded-full text-[13px] focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900" />
+          {busca && <button onClick={() => setBusca("")} className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-100 rounded-full text-[11px]">✕</button>}
         </div>
-
-        {/* BOTÃO DE ATUALIZAR FEED */}
-        <button 
-          onClick={handleAtualizarFeed}
-          title="Atualizar feed"
-          className="h-11 px-4 bg-white border border-slate-200 rounded-full text-[13px] font-medium hover:bg-slate-50 transition flex items-center gap-1.5 shrink-0 shadow-sm"
-        >
+        <button onClick={handleAtualizarFeed} title="Atualizar feed" className="h-11 px-4 bg-white border border-slate-200 rounded-full text-[13px] font-medium hover:bg-slate-50 transition flex items-center gap-1.5 shrink-0 shadow-sm">
           <span className={`inline-block text-sm ${atualizando ? "animate-spin" : ""}`}>🔄</span>
           <span className="hidden sm:inline">Atualizar</span>
         </button>
       </div>
 
+      {/* AVISO RELÂMPAGO */}
+      {totalRelampago > 0 && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 flex items-center justify-between">
+          <p className="text-[12px] font-bold text-red-700">⚡ {totalRelampago} oferta{totalRelampago > 1 ? "s" : ""} relâmpago urgente em {cidadeFiltro}</p>
+          <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full animate-pulse">AO VIVO</span>
+        </div>
+      )}
+
       <div className="mb-5 flex justify-between items-center">
         <div>
           <h2 className="text-[11px] font-medium tracking-widest text-slate-400 uppercase">Vagas abertas</h2>
-          <p className="text-[12px] text-slate-500 mt-1">
-            Vagas de <b className="text-slate-900">{cidadeFiltro} / {estadoFiltro}</b> • {listaFiltrada.length} vaga(s) {termo && `para "${termo}"`}
-          </p>
+          <p className="text-[12px] text-slate-500 mt-1">Vagas de <b className="text-slate-900">{cidadeFiltro} / {estadoFiltro}</b> • {listaFiltrada.length} vaga(s) {termo && `para "${termo}"`}</p>
         </div>
       </div>
 
       <div className={`space-y-4 transition-opacity duration-300 ${atualizando ? "opacity-30" : "opacity-100"}`}>
         {feedMisto.length === 0 ? (
           <div className="bg-white border border-dashed rounded-2xl p-10 text-center">
-            <p className="text-[13px] font-medium text-slate-700">
-              {termo ? `Nenhuma vaga em ${cidadeFiltro} para "${termo}"` : `Nenhuma vaga disponível em ${cidadeFiltro} no momento.`}
-            </p>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Você pode trocar a cidade no seu Perfil para ver vagas de outras cidades.
-            </p>
-            {termo && (
-              <button onClick={() => setBusca("")} className="mt-3 text-[11px] underline text-slate-500">Limpar pesquisa</button>
-            )}
+            <p className="text-[13px] font-medium text-slate-700">{termo ? `Nenhuma vaga em ${cidadeFiltro} para "${termo}"` : `Nenhuma vaga disponível em ${cidadeFiltro} no momento.`}</p>
+            <p className="text-[11px] text-slate-400 mt-1">Você pode trocar a cidade no seu Perfil para ver vagas de outras cidades.</p>
+            {termo && <button onClick={() => setBusca("")} className="mt-3 text-[11px] underline text-slate-500">Limpar pesquisa</button>}
           </div>
         ) : (
-          feedMisto.map(item =>
-            item.tipo === "vaga" ? (
-              <CardVaga key={item.id} vaga={item.data} onCandidatar={onCandidatar} onVerPerfil={onVerPerfil} />
-            ) : (
-              <CardAnuncio key={item.id} anuncio={item.data} />
-            )
-          )
+          feedMisto.map(item => item.tipo === "vaga" ? <CardVaga key={item.id} vaga={item.data} onCandidatar={onCandidatar} onVerPerfil={onVerPerfil} /> : <CardAnuncio key={item.id} anuncio={item.data} />)
         )}
       </div>
     </div>

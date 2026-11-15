@@ -97,7 +97,6 @@ export default function Perfil({
   const [salvando, setSalvando] = useState(false);
   const [comentarios, setComentarios] = useState([]);
 
-  // Estados para edição rápida da Bio (Sugestão 6)
   const [editandoBio, setEditandoBio] = useState(false);
   const [textoBio, setTextoBio] = useState(usuario?.experiencias || usuario?.bio || usuario?.sobre || "");
   const [salvandoBio, setSalvandoBio] = useState(false);
@@ -105,10 +104,8 @@ export default function Perfil({
   useEffect(() => {
     const salvo = localStorage.getItem("coords_diariafacil");
     if(salvo) setCoords(JSON.parse(salvo));
-    
     const localSalvo = localStorage.getItem("local_diariafacil");
     if(localSalvo) setLocal(localSalvo);
-
     const feedC = localStorage.getItem("feed_cidade_diariafacil");
     const feedE = localStorage.getItem("feed_estado_diariafacil");
     if(feedC) { 
@@ -117,14 +114,12 @@ export default function Perfil({
       setCidadeInput(limpa); 
     }
     if(feedE) setEstadoFeed(feedE);
-
     if(usuario?.feedCidade) { 
       const limpa = limparCidade(usuario.feedCidade);
       setCidadeFeed(limpa); 
       setCidadeInput(limpa); 
     }
     if(usuario?.feedEstado) setEstadoFeed(usuario.feedEstado);
-    
     if(usuario?.experiencias || usuario?.bio || usuario?.sobre) {
       setTextoBio(usuario.experiencias || usuario.bio || usuario.sobre);
     }
@@ -133,7 +128,6 @@ export default function Perfil({
   useEffect(() => {
     const uidAlvo = usuario?.uid || auth.currentUser?.uid;
     if (!uidAlvo) return;
-
     const q = query(collection(db, "avaliacoes"), where("prestadorId", "==", uidAlvo));
     const unsub = onSnapshot(q, (snapshot) => {
       const lista = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -146,7 +140,6 @@ export default function Perfil({
     }, (err) => {
       console.log("Erro ao carregar avaliações no perfil:", err);
     });
-
     return () => unsub();
   }, [usuario?.uid]);
 
@@ -200,22 +193,18 @@ export default function Perfil({
       setLocal(`${cidadeFinal} - ${estadoFeed}`);
       setCidadeFeed(cidadeFinal);
       setCidadeInput(cidadeFinal);
-
       const dadosNovos = {
         feedCidade: cidadeFinal,
         feedEstado: estadoFeed,
         cidadeDesejada: cidadeFinal,
         estadoDesejado: estadoFeed,
       };
-
       if(auth.currentUser){
         await updateDoc(doc(db, "usuarios", auth.currentUser.uid), dadosNovos);
       }
-
       if (onSalvarCidade) {
         onSalvarCidade(dadosNovos);
       }
-
       alert(`✅ Vagas atualizadas para ${cidadeFinal} - ${estadoFeed}!`);
     } catch(e){ 
       alert("Erro ao salvar: " + e.message); 
@@ -223,7 +212,6 @@ export default function Perfil({
     setSalvando(false);
   };
 
-  // Salvar Bio Inline (Sugestão 6)
   const salvarBioInline = async () => {
     const user = auth.currentUser;
     if (!user) return;
@@ -241,7 +229,6 @@ export default function Perfil({
     setSalvandoBio(false);
   };
 
-  // Compartilhar Perfil no WhatsApp (Sugestão 7)
   const compartilharPerfil = () => {
     const nome = usuario?.nome || "Profissional";
     const nota = notaMedia;
@@ -254,8 +241,6 @@ export default function Perfil({
   const somaNotas = comentarios.length > 0 ? comentarios.reduce((acc, curr) => acc + (Number(curr.nota) || 5), 0) : (usuario?.sumNotas || 0);
   const notaMedia = totalAval > 0 ? (somaNotas / totalAval).toFixed(1) : "5.0";
   const cidadesDoEstado = CIDADES_POR_ESTADO[estadoFeed] || [cidadeInput];
-
-  // Especialidades / Tags customizadas do prestador (Sugestão 5)
   const especialidades = usuario?.especialidades || usuario?.habilidades || ["Ainda precisa ser editado pelo usuário"];
 
   if (modo === "minhas") {
@@ -287,9 +272,9 @@ export default function Perfil({
         </div>
       </div>
       
-      {/* CABEÇALHO DO PERFIL */}
+      {/* CABEÇALHO DO PERFIL - FOTO QUADRADA */}
       <div className="mt-5 bg-white border border-slate-200 p-4 rounded-2xl flex gap-3 items-center">
-        <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden ring-1 ring-slate-200 flex-shrink-0">
+        <div className="w-12 h-12 rounded-[12px] bg-slate-100 overflow-hidden ring-1 ring-slate-200 flex-shrink-0">
           {usuario?.foto ? <img src={usuario.foto} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-semibold text-slate-500">{usuario?.nome?.[0]?.toUpperCase() || "A"}</div>}
         </div>
         <div className="flex-1 min-w-0">
@@ -298,12 +283,10 @@ export default function Perfil({
             <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold">✓ Verificado</span>
           </div>
           <p className="text-[11px] text-slate-500 mt-0.5">⭐ {notaMedia} ({totalAval} avaliações)</p>
-          <p className="text-[10px] mt-0.5 font-medium text-emerald-600">{coords ? "GPS ativo" : "GPS desativado"}</p>
         </div>
         <button onClick={onEditar} className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-medium">Editar</button>
       </div>
 
-      {/* SUGESTÃO 5: TAGS DE ESPECIALIDADES / HABILIDADES */}
       <div className="mt-3 bg-white border border-slate-200 p-4 rounded-2xl">
         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Especialidades:</p>
         <div className="flex flex-wrap gap-1.5">
@@ -319,58 +302,36 @@ export default function Perfil({
         </div>
       </div>
 
-      {/* SUGESTÃO 7: BOTÃO DE COMPARTILHAR PERFIL NO WHATSAPP */}
-      <button 
-        onClick={compartilharPerfil}
-        className="mt-3 w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[12px] font-bold flex items-center justify-center gap-2 shadow-xs transition"
-      >
-        <span>📲</span> COMPARTILHAR MEU PERFIL NO WHATSAPP
-      </button>
 
-      {/* CONFIGURAÇÃO DO FEED DE VAGAS */}
       <div className="mt-3 bg-white border border-slate-200 p-4 rounded-2xl">
         <div className="flex justify-between items-center">
           <span className="font-semibold text-[13px]">Onde ver vagas!</span>
           <span className="text-[9px] bg-slate-900 text-white px-2.5 py-1 rounded-full font-medium tracking-widest uppercase">Diária Mode</span>
         </div>
         <p className="text-[11px] text-slate-500 mt-1 leading-snug">Selecione o estado para listar as cidades disponíveis.</p>
-        
         <div className="mt-3 grid grid-cols-[80px_1fr] gap-2">
           <div>
             <label className="text-[10px] font-medium text-slate-500">ESTADO:</label>
-            <select 
-              value={estadoFeed} 
-              onChange={(e)=>handleTrocaEstado(e.target.value)} 
-              className="mt-1 w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-2 text-[13px] font-medium focus:outline-none focus:border-slate-900"
-            >
+            <select value={estadoFeed} onChange={(e)=>handleTrocaEstado(e.target.value)} className="mt-1 w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-2 text-[13px] font-medium focus:outline-none focus:border-slate-900">
               {ESTADOS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
             </select>
           </div>
           <div>
             <label className="text-[10px] font-medium text-slate-500">CIDADE:</label>
-            <select
-              value={cidadeInput}
-              onChange={(e)=>setCidadeInput(e.target.value)}
-              className="mt-1 w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-[13px] focus:outline-none focus:border-slate-900 font-medium"
-            >
-              {cidadesDoEstado.map(cid => (
-                <option key={cid} value={cid}>{cid}</option>
-              ))}
+            <select value={cidadeInput} onChange={(e)=>setCidadeInput(e.target.value)} className="mt-1 w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-[13px] focus:outline-none focus:border-slate-900 font-medium">
+              {cidadesDoEstado.map(cid => (<option key={cid} value={cid}>{cid}</option>))}
             </select>
           </div>
         </div>
-
         <button onClick={salvarCidadeDesejada} disabled={salvando} className="w-full mt-3 h-11 bg-slate-900 text-white rounded-xl text-[12px] font-medium disabled:opacity-50">
           {salvando ? "Salvando..." : `Ver vagas de ${cidadeInput || cidadeFeed} - ${estadoFeed}`}
         </button>
-
         <div className="mt-2 flex items-center justify-between">
           <p className="text-[10px] text-slate-400">Atual: <b className="text-slate-700">{local}</b></p>
           <p className="text-[10px] text-slate-400">Feed: <b className="text-slate-900">{cidadeFeed} - {estadoFeed}</b></p>
         </div>
       </div>
 
-      {/* SEÇÃO DE AVALIAÇÕES E COMENTÁRIOS */}
       <div className="mt-3 bg-white border border-slate-200 p-4 rounded-2xl space-y-3">
         <div className="flex justify-between items-center">
           <span className="font-semibold text-[13px]">⭐ Avaliações</span>
@@ -379,7 +340,6 @@ export default function Perfil({
             <span>{notaMedia} <span className="text-slate-400 font-normal">({totalAval})</span></span>
           </div>
         </div>
-
         <div className="space-y-2.5 pt-1">
           {comentarios.length > 0 ? (
             comentarios.map((item) => (
@@ -387,40 +347,28 @@ export default function Perfil({
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     {item.avaliadorFoto ? (
-                      <img src={item.avaliadorFoto} alt="" className="w-5 h-5 rounded-full object-cover" />
+                      <img src={item.avaliadorFoto} alt="" className="w-5 h-5 rounded-[6px] object-cover" />
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[9px] font-bold flex items-center justify-center">
+                      <div className="w-5 h-5 rounded-[6px] bg-slate-200 text-slate-700 text-[9px] font-bold flex items-center justify-center">
                         {(item.avaliadorNome || "U")[0].toUpperCase()}
                       </div>
                     )}
-                    <span className="text-[12px] font-bold text-slate-900">
-                      {formatarNomeAvaliador(item.avaliadorNome)}
-                    </span>
+                    <span className="text-[12px] font-bold text-slate-900">{formatarNomeAvaliador(item.avaliadorNome)}</span>
                   </div>
                   <div className="flex items-center gap-0.5 text-yellow-500 text-[11px]">
-                    {Array.from({ length: Number(item.nota) || 5 }).map((_, i) => (
-                      <span key={i}>★</span>
-                    ))}
+                    {Array.from({ length: Number(item.nota) || 5 }).map((_, i) => (<span key={i}>★</span>))}
                   </div>
                 </div>
-
                 {item.comentario ? (
-                  <p className="text-[12px] text-slate-600 leading-relaxed bg-white p-2.5 rounded-lg border border-slate-100">
-                    "{item.comentario}"
-                  </p>
+                  <p className="text-[12px] text-slate-600 leading-relaxed bg-white p-2.5 rounded-lg border border-slate-100">"{item.comentario}"</p>
                 ) : (
                   <p className="text-[11px] text-slate-400 italic">Apenas nota em estrelas.</p>
                 )}
-
                 <div className="flex justify-between items-center mt-0.5">
                   {item.vagaTitulo ? (
-                    <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full truncate max-w-[170px]">
-                      Serviço: {item.vagaTitulo}
-                    </span>
+                    <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full truncate max-w-[170px]">Serviço: {item.vagaTitulo}</span>
                   ) : <span></span>}
-                  <span className="text-[9px] text-slate-400">
-                    {item.criadoEm?.toDate ? item.criadoEm.toDate().toLocaleDateString("pt-BR") : "Recentemente"}
-                  </span>
+                  <span className="text-[9px] text-slate-400">{item.criadoEm?.toDate ? item.criadoEm.toDate().toLocaleDateString("pt-BR") : "Recentemente"}</span>
                 </div>
               </div>
             ))
@@ -432,7 +380,6 @@ export default function Perfil({
         </div>
       </div>
 
-      {/* SUGESTÃO 6: EDIÇÃO RÁPIDA DA BIO (MODO INLINE) */}
       <div className="mt-3 bg-white border border-slate-200 p-4 rounded-2xl">
         <div className="flex justify-between items-center mb-2">
           <span className="font-medium text-[13px]">Sobre mim</span>
@@ -442,7 +389,6 @@ export default function Perfil({
             <button onClick={() => setEditandoBio(false)} className="text-[11px] text-red-500 font-medium">cancelar</button>
           )}
         </div>
-
         {!editandoBio ? (
           usuario?.experiencias || usuario?.bio || usuario?.sobre ? (
             <p className="text-[12px] leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">{usuario.experiencias || usuario.bio || usuario.sobre}</p>
@@ -455,20 +401,8 @@ export default function Perfil({
           )
         ) : (
           <div className="space-y-2 mt-2">
-            <textarea
-              rows={4}
-              value={textoBio}
-              onChange={(e) => setTextoBio(e.target.value)}
-              placeholder="Escreva um pouco sobre sua experiência e serviços..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-[12px] outline-none focus:border-slate-900"
-            />
-            <button
-              onClick={salvarBioInline}
-              disabled={salvandoBio}
-              className="w-full h-10 bg-slate-900 text-white rounded-xl text-[12px] font-bold disabled:opacity-50"
-            >
-              {salvandoBio ? "Salvando..." : "Salvar Bio"}
-            </button>
+            <textarea rows={4} value={textoBio} onChange={(e) => setTextoBio(e.target.value)} placeholder="Escreva um pouco sobre sua experiência e serviços..." className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-[12px] outline-none focus:border-slate-900" />
+            <button onClick={salvarBioInline} disabled={salvandoBio} className="w-full h-10 bg-slate-900 text-white rounded-xl text-[12px] font-bold disabled:opacity-50">{salvandoBio ? "Salvando..." : "Salvar Bio"}</button>
           </div>
         )}
       </div>
@@ -489,7 +423,6 @@ export default function Perfil({
       </div>
 
       <button onClick={onSair} className="w-full mt-6 h-10 border border-red-200 text-red-600 rounded-full text-[12px] font-medium">Sair da conta</button>
-      
       {menuAberto && <div onClick={()=>setMenuAberto(false)} className="fixed inset-0 z-40"></div>}
     </div>
   )
