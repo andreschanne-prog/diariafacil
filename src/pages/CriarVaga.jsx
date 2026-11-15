@@ -213,7 +213,7 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
               onClick={()=>setForm({...form, genero: "homem"})} 
               className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${form.genero === "homem" ? "bg-blue-600 border-blue-600 text-white shadow-md scale-[1.02]" : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"}`}
             >
-              <span className="text-[18px]">Preferência:</span>
+              <span className="text-[12px]">Preferência:</span>
               <span className="text-[11px] font-black">HOMEM</span>
             </button>
 
@@ -222,7 +222,7 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
               onClick={()=>setForm({...form, genero: "mulher"})} 
               className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${form.genero === "mulher" ? "bg-pink-600 border-pink-600 text-white shadow-md scale-[1.02]" : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"}`}
             >
-              <span className="text-[18px]">Preferência:</span>
+              <span className="text-[12px]">Preferência:</span>
               <span className="text-[11px] font-black">MULHER</span>
             </button>
 
@@ -231,7 +231,7 @@ export default function CriarVaga({ onVoltar, onSucesso, usuario }) {
               onClick={()=>setForm({...form, genero: "ambos"})} 
               className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${form.genero === "ambos" ? "bg-black border-black text-white shadow-md scale-[1.02]" : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"}`}
             >
-              <span className="text-[18px]">Preferência:</span>
+              <span className="text-[12px]">Preferência:</span>
               <span className="text-[11px] font-black">AMBOS</span>
             </button>
           </div>

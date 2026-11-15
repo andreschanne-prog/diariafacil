@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { auth, db } from "./firebase.js"
 import { onAuthStateChanged } from "firebase/auth"
-import { doc, getDoc, collection, onSnapshot, orderBy, query, where, getDocs, updateDoc } from "firebase/firestore"
+import { doc, getDoc, setDoc, collection, onSnapshot, orderBy, query, where, getDocs, updateDoc } from "firebase/firestore"
 import { getMessaging, getToken, onMessage } from "firebase/messaging"
 
 import Header from "./components/Header"
@@ -49,6 +49,7 @@ export default function App() {
     return !localStorage.getItem("jaViuWelcome_diariafacil");
   })
 
+  // ===== CORRIGIDO - ANTI LOOP INFINITO =====
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       try {
@@ -62,8 +63,26 @@ export default function App() {
             localStorage.setItem("feed_cidade_diariafacil", dados.feedCidade || dados.cidade || "Sinop")
             localStorage.setItem("feed_estado_diariafacil", dados.feedEstado || dados.estado || "MT")
           } else {
-            setUsuario({ nome: user.displayName || "", email: user.email, foto: user.photoURL || "", uid: user.uid })
-            setPrecisaCompletarCadastro(true)
+            // USUÁRIO NOVO DO GOOGLE - CRIA AUTOMÁTICO AQUI E VAI DIRETO PRO FEED
+            const novoUsuario = {
+              nome: user.displayName || "Cliente",
+              email: user.email,
+              contato: "",
+              idade: null,
+              cidade: "Sinop",
+              feedCidade: "Sinop",
+              feedEstado: "MT",
+              estado: "MT",
+              foto: user.photoURL || "",
+              termosAceitos: true,
+              privacidadeAceita: true,
+              dataAceite: new Date(),
+              criadoEm: new Date(),
+              provedor: "google"
+            }
+            await setDoc(ref, novoUsuario) // cria no banco na hora
+            setUsuario({ ...novoUsuario, uid: user.uid })
+            setPrecisaCompletarCadastro(false) // NUNCA manda pra cadastro
             localStorage.setItem("feed_cidade_diariafacil", "Sinop")
             localStorage.setItem("feed_estado_diariafacil", "MT")
           }
@@ -78,8 +97,9 @@ export default function App() {
       } catch (e) {
         console.log("Erro auth:", e)
         if(user){
+          // Em caso de erro, NÃO manda pro cadastro - deixa entrar
           setUsuario({ nome: user.displayName || "", email: user.email, foto: user.photoURL || "", uid: user.uid })
-          setPrecisaCompletarCadastro(true)
+          setPrecisaCompletarCadastro(false)
           setLogado(true)
         }
       } finally {
@@ -249,7 +269,7 @@ export default function App() {
   
   if (!logado) {
     if(mostrarCadastro){ 
-      return <Cadastro onEntrar={(dados)=>{ setUsuario({...usuario, ...dados}); setMostrarCadastro(false); }} onVoltar={()=>setMostrarCadastro(false)} usuarioInicial={null} onVerTermos={()=>irParaTermos("termos")} onVerPrivacidade={()=>irParaTermos("privacidade")} termosJaAceito={termosAceito} privacidadeJaAceita={privacidadeAceita} /> 
+      return <Cadastro onEntrar={(dados)=>{ setUsuario({...usuario, ...dados}); setMostrarCadastro(false); setLogado(true); }} onVoltar={()=>setMostrarCadastro(false)} usuarioInicial={null} onVerTermos={()=>irParaTermos("termos")} onVerPrivacidade={()=>irParaTermos("privacidade")} termosJaAceito={termosAceito} privacidadeJaAceita={privacidadeAceita} /> 
     }
     if(mostrarRecuperar){ 
       return <RecuperarSenha onVoltar={()=>setMostrarRecuperar(false)} /> 
@@ -257,7 +277,22 @@ export default function App() {
     return <Login onLogin={()=>{}} onCadastro={()=>setMostrarCadastro(true)} onEsqueceuSenha={()=>setMostrarRecuperar(true)} />
   }
   
-  if(precisaCompletarCadastro){ return <Cadastro onEntrar={(dados)=>{ setUsuario({...usuario, ...dados}); setPrecisaCompletarCadastro(false); setTela("feed") }} usuarioInicial={usuario} onVerTermos={()=>irParaTermos("termos")} onVerPrivacidade={()=>irParaTermos("privacidade")} termosJaAceito={termosAceito} privacidadeJaAceita={privacidadeAceita} /> }
+  // Se por acaso ainda cair aqui, não vai mais travar em loop
+  if(precisaCompletarCadastro){ 
+    return <Cadastro 
+      onEntrar={(dados)=>{ 
+        setUsuario(prev => ({...prev, ...dados})); 
+        setPrecisaCompletarCadastro(false); 
+        setLogado(true);
+        setTela("feed") 
+      }} 
+      usuarioInicial={usuario} 
+      onVerTermos={()=>irParaTermos("termos")} 
+      onVerPrivacidade={()=>irParaTermos("privacidade")} 
+      termosJaAceito={termosAceito} 
+      privacidadeJaAceita={privacidadeAceita} 
+    /> 
+  }
 
   const feedVagas = vagas.filter(v => {
     if(v.fechada || v.status === "preenchida") return false;
@@ -317,14 +352,7 @@ export default function App() {
       
       {tela === "feed" && (
         <>
-          <Feed 
-            vagas={feedVagas} 
-            anuncios={anuncios} 
-            cidadeFiltro={cidadeFiltro} 
-            estadoFiltro={estadoFiltro} 
-            onVerPerfil={abrirPerfilVisitante}
-            onAbrirContatos={() => abrirContatos()}
-          />
+          <Feed vagas={feedVagas} anuncios={anuncios} cidadeFiltro={cidadeFiltro} estadoFiltro={estadoFiltro} onVerPerfil={abrirPerfilVisitante} onAbrirContatos={() => abrirContatos()} />
           <Footer />
         </>
       )}
@@ -333,12 +361,7 @@ export default function App() {
       
       {tela === "minhas" && (
         <>
-          <MinhasVagas 
-            vagas={minhasVagasFiltradas} 
-            usuario={usuario} 
-            onVerPerfil={abrirPerfilVisitante}
-            onSalvarContato={(candidato) => abrirContatos(candidato)}
-          />
+          <MinhasVagas vagas={minhasVagasFiltradas} usuario={usuario} onVerPerfil={abrirPerfilVisitante} onSalvarContato={(candidato) => abrirContatos(candidato)} />
           <Footer />
         </>
       )}
@@ -347,54 +370,19 @@ export default function App() {
       
       {tela === "contatos" && (
         <>
-          <Contatos
-            onVoltar={() => setTela("perfil")}
-            onVerPerfil={abrirPerfilVisitante}
-            candidatoParaSalvar={candidatoParaSalvar}
-            onLimparCandidato={() => setCandidatoParaSalvar(null)}
-          />
+          <Contatos onVoltar={() => setTela("perfil")} onVerPerfil={abrirPerfilVisitante} candidatoParaSalvar={candidatoParaSalvar} onLimparCandidato={() => setCandidatoParaSalvar(null)} />
           <Footer />
         </>
       )}
 
-      {tela === "visitante" && (
-        <PerfilVisitante 
-          usuarioId={visitanteId} 
-          usuarioData={visitanteData} 
-          usuarioLogado={usuario} 
-          onVoltar={()=>setTela(telaAnterior)} 
-        />
-      )}
-
-      {tela === "admin" && (
-        <Admin 
-          onVoltar={()=>setTela("feed")} 
-          onAbrirCriarAnuncio={() => { setAnuncioEditando(null); setTela("criarAnuncio") }} 
-          onEditarAnuncio={(anuncio) => { setAnuncioEditando(anuncio); setTela("criarAnuncio") }} 
-          onVerPerfil={abrirPerfilVisitante}
-        />
-      )}
-
+      {tela === "visitante" && <PerfilVisitante usuarioId={visitanteId} usuarioData={visitanteData} usuarioLogado={usuario} onVoltar={()=>setTela(telaAnterior)} />}
+      {tela === "admin" && <Admin onVoltar={()=>setTela("feed")} onAbrirCriarAnuncio={() => { setAnuncioEditando(null); setTela("criarAnuncio") }} onEditarAnuncio={(anuncio) => { setAnuncioEditando(anuncio); setTela("criarAnuncio") }} onVerPerfil={abrirPerfilVisitante} />}
       {tela === "criarAnuncio" && <CriarAnuncio anuncioParaEditar={anuncioEditando} onVoltar={()=>setTela("admin")} />}
-      
       {tela === "deletar" && <DeletarConta />}
 
       {tela === "perfil" && (
         <>
-          <Perfil 
-            vagas={vagas} 
-            modo="perfil" 
-            usuario={usuario} 
-            onSair={()=>{ auth.signOut(); setLogado(false) }} 
-            onEditar={()=>setTela("editar")} 
-            onContatos={()=>abrirContatos()}
-            onDeletar={()=>setTela("deletar")} 
-            onSuporte={()=>{ setTelaAnterior("perfil"); setTela("suporte"); }} 
-            onAnuncio={()=>setTela("anuncio")}
-            onSalvarCidade={(novosDados) => {
-              setUsuario(prev => ({ ...prev, ...novosDados }))
-            }}
-          />
+          <Perfil vagas={vagas} modo="perfil" usuario={usuario} onSair={()=>{ auth.signOut(); setLogado(false) }} onEditar={()=>setTela("editar")} onContatos={()=>abrirContatos()} onDeletar={()=>setTela("deletar")} onSuporte={()=>{ setTelaAnterior("perfil"); setTela("suporte"); }} onAnuncio={()=>setTela("anuncio")} onSalvarCidade={(novosDados) => { setUsuario(prev => ({ ...prev, ...novosDados })) }} />
           <Footer />
         </>
       )}
@@ -410,7 +398,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal de aviso flutuante global (não exibe se estiver no painel Admin) */}
       {tela !== "admin" && <ModalAvisoFlutuante />}
 
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-2 py-3 flex justify-center z-50">
