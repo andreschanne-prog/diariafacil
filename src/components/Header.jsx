@@ -1,40 +1,59 @@
-export default function Header({ onPostar, usuario, isAdmin, onAdmin }) {
+// src/components/Header.jsx - COPIA ESSE INTEIRO
+
+export default function Header({ usuario, isAdmin, onAdmin, onVerPerfil }) {
   return (
-    <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-slate-200">
-      <div className="max-w-[640px] mx-auto px-4 h-[56px] flex justify-between items-center">
-        {/* Logo clean com ícone oficial */}
+    <div className="sticky top-0 bg-white border-b border-slate-200" style={{ zIndex: 50 }}>
+      <div className="mx-auto px-4 flex justify-between items-center" style={{ maxWidth: 640, height: 56 }}>
+
         <div className="flex items-center gap-2">
-          <img 
-            src="/icon.jpeg" 
-            alt="Diárias Facil" 
-            className="w-8 h-8 rounded-xl shadow-sm object-cover"
+          <img
+            src="/icon.jpeg"
+            alt="Diárias Fácil"
+            className="rounded-xl shadow-sm object-cover"
+            style={{ width: 32, height: 32 }}
           />
-          <div className="leading-none">
-            <p className="text-[13px] font-semibold tracking-tight">Diárias Fácil</p>
-            <p className="text-[10px] text-slate-500 tracking-widest uppercase -mt-0.5">
-              {usuario?.feedCidade || "Sempre um negócio"} - {usuario?.feedEstado || "perto de você"}
+          <div style={{ lineHeight: 1 }}>
+            <p className="font-semibold tracking-tight" style={{ fontSize: 14 }}>
+              Diárias Fácil
+            </p>
+            <p className="text-slate-500 tracking-widest uppercase" style={{ fontSize: 10, marginTop: 2 }}>
+              {usuario?.feedCidade || "Facilidade"} - {usuario?.feedEstado || "Oportunidades"}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <button 
-              onClick={onAdmin} 
-              className="h-8 bg-red-600 hover:bg-red-700 text-white px-4 rounded-full text-[11px] font-bold tracking-widest transition-colors"
+            <button
+              onClick={onAdmin}
+              className="bg-red-600 text-white rounded-full font-bold tracking-widest active:scale-95 transition"
+              style={{ height: 32, paddingLeft: 14, paddingRight: 14, fontSize: 11 }}
             >
               Admin
             </button>
           )}
-          
-          <button 
-            onClick={onPostar} 
-            className="h-8 bg-slate-900 hover:bg-black text-white px-4 rounded-full text-[12px] font-medium tracking-wide transition-colors"
+
+          {/* SÓ PERFIL aqui em cima */}
+          <button
+            onClick={onVerPerfil}
+            aria-label="Abrir perfil"
+            className="rounded-full overflow-hidden ring-1 ring-slate-200 shrink-0 active:scale-95 transition"
+            style={{ width: 36, height: 36 }}
           >
-            Criar vagas
+            {usuario?.foto ? (
+              <img src={usuario.foto} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span
+                className="w-full h-full bg-slate-100 flex items-center justify-center font-bold text-slate-600"
+                style={{ fontSize: 14 }}
+              >
+                {usuario?.nome?.[0]?.toUpperCase() || "👤"}
+              </span>
+            )}
           </button>
         </div>
+
       </div>
     </div>
-  )
+  );
 }

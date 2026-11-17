@@ -1,76 +1,86 @@
+// src/pages/VagasAceitas.jsx - VERSÃO BIGTECH
 import { useState } from "react";
 
 export default function VagasAceitas({ vagas = [], usuario }) {
-  // Guarda os IDs das vagas cujos botões do WhatsApp já foram clicados
   const [clicadosZap, setClicadosZap] = useState(new Set());
-  
-  // só vagas onde EU fui aceita
-  const aceitas = vagas.filter(v => 
-    v.candidatos?.some(c => 
+  const [toast, setToast] = useState(null);
+
+  const mostrarToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
+
+  // Só vagas onde EU fui aceito
+  const aceitas = vagas.filter(v =>
+    v.candidatos?.some(c =>
       (c.uid === usuario?.uid || c.email === usuario?.email || c.nome === usuario?.nome) && c.aprovado === true
     )
   );
 
   const abrirZap = (vagaId, zap) => {
     const num = zap?.replace(/\D/g, "") || "";
-    if(!num) return alert("Contato não encontrado");
-
-    // Marca esta vaga como clicada para mudar a cor da borda
+    if (!num) return mostrarToast("Contato não encontrado");
     setClicadosZap(prev => new Set(prev).add(vagaId));
-
-    window.open(`https://wa.me/55${num}?text=Olá! Fui aceito(a) para a sua vaga no Diária Fácil. Podemos alinhar os detalhes?`, "_blank");
+    window.open(`https://wa.me/55${num}?text=${encodeURIComponent("Olá! Fui aceito(a) para a sua vaga no Diárias Fácil. Podemos alinhar os detalhes?")}`, "_blank");
   };
 
   return (
-    <div className="max-w-[600px] mx-auto min-h-screen bg-[#f5f5f0] p-6 pb-28">
-      <h2 className="text-2xl font-black leading-tight">Vagas Aceitas<br/></h2>
-      <p className="text-[12px] opacity-60 mt-2">Anunciantes que escolheram você - BOA SORTE!</p>
+    <div className="mx-auto min-h-screen bg-slate-50" style={{ maxWidth: 640, padding: "16px 16px 110px" }}>
 
-      <div className="mt-6 space-y-4">
+      {/* HEADER */}
+      <div>
+        <h2 className="font-bold tracking-tight" style={{ fontSize: 20 }}>Vagas aceitas</h2>
+        <p className="text-slate-500" style={{ fontSize: 12, marginTop: 4 }}>
+          {aceitas.length > 0 ? `${aceitas.length} ${aceitas.length === 1 ? "anunciante escolheu você" : "anunciantes escolheram você"}` : "Anunciantes que escolherem você aparecem aqui"}
+        </p>
+      </div>
+
+      <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
         {aceitas.length === 0 ? (
-          <div className="bg-white p-8 rounded-[24px] border text-center">
-            <div className="text-4xl mb-3">📋</div>
-            <p className="font-black">Nenhuma vaga aceita ainda</p>
-            <p className="text-[12px] opacity-60 mt-2">Quando alguém te aceitar em Minhas Vagas dele, vai aparecer aqui com o contato pra você!</p>
+          <div className="bg-white border border-slate-200 rounded-3xl text-center" style={{ padding: 28 }}>
+            <div className="mx-auto bg-emerald-50 rounded-full flex items-center justify-center" style={{ width: 56, height: 56, fontSize: 22 }}>✓</div>
+            <p className="font-bold" style={{ fontSize: 14, marginTop: 12 }}>Nenhuma vaga aceita ainda</p>
+            <p className="text-slate-500" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 6 }}>
+              Quando um anunciante te aceitar, vai aparecer aqui com o contato liberado para você combinar os detalhes.
+            </p>
           </div>
         ) : (
           aceitas.map(v => {
             const zapLimpo = v.zap || v.whatsapp || "";
             const jaClicou = clicadosZap.has(v.id);
-
             return (
-              <div 
-                key={v.id} 
-                className={`bg-white p-5 rounded-[24px] border shadow-sm transition-colors duration-300 ${
-                  jaClicou ? "border-slate-300" : "border-green-200"
-                }`}
-              >
-                <div className="flex justify-between items-start gap-2">
-                  <div>
-                    <p className="font-black text-[12px] text-green-700">✅ VOCÊ FOI ACEITO(A)!</p>
-                    <p className="font-black text-[15px] mt-1 leading-tight">{v.titulo}</p>
-                    <p className="text-[11px] opacity-60 mt-1">📍 {v.cidade} • R$ {v.valor}</p>
+              <div key={v.id} className="bg-white border rounded-3xl overflow-hidden" style={{ borderColor: jaClicou ? "#E2E8F0" : "#BBF7D0" }}>
+                {/* TOPO DO CARD */}
+                <div style={{ padding: "16px 16px 0" }}>
+                  <div className="flex justify-between items-start gap-2">
+                    <div style={{ minWidth: 0 }}>
+                      <span className="bg-emerald-50 text-emerald-700 rounded-full font-bold" style={{ fontSize: 10, padding: "4px 8px" }}>Você foi aceito</span>
+                      <p className="font-bold leading-tight truncate" style={{ fontSize: 15, marginTop: 10 }}>{v.titulo}</p>
+                      <p className="text-slate-500" style={{ fontSize: 12, marginTop: 4 }}>{v.cidade} • R$ {v.valor}</p>
+                    </div>
+                    <span className="bg-emerald-600 text-white rounded-full font-bold shrink-0" style={{ fontSize: 10, padding: "5px 10px" }}>ACEITA</span>
                   </div>
-                  <span className="text-[10px] font-black bg-green-600 text-white px-3 py-1 rounded-full">ACEITA</span>
+
+                  {v.descricao && <p className="text-slate-600 bg-slate-50 rounded-xl" style={{ fontSize: 12, lineHeight: 1.5, padding: 10, marginTop: 12 }}>{v.descricao}</p>}
                 </div>
 
-                <div className="mt-4 bg-green-50 border border-green-200 p-4 rounded-xl">
-                  <p className="text-[11px] font-black text-green-800">CONTATO LIBERADO:</p>
-                  <p className="text-[16px] font-mono font-black mt-1">{zapLimpo}</p>
-                  <button 
-                    onClick={() => abrirZap(v.id, zapLimpo)} 
-                    className="mt-3 w-full bg-green-600 text-white py-3 rounded-full font-black text-[12px] hover:bg-green-700 transition"
+                {/* CONTATO LIBERADO */}
+                <div className="bg-emerald-50 border-t border-emerald-100" style={{ padding: 16, marginTop: 14 }}>
+                  <p className="font-bold text-emerald-800 uppercase tracking-wider" style={{ fontSize: 10 }}>Contato liberado</p>
+                  <p className="font-bold" style={{ fontSize: 16, marginTop: 4, letterSpacing: 0.5 }}>{zapLimpo || "—"}</p>
+                  <button
+                    onClick={() => abrirZap(v.id, zapLimpo)}
+                    className="w-full bg-emerald-600 text-white rounded-full font-bold"
+                    style={{ height: 44, fontSize: 13, marginTop: 12 }}
                   >
-                    WHATSAPP
+                    {jaClicou ? "Abrir WhatsApp novamente" : "Chamar no WhatsApp"}
                   </button>
+                  {jaClicou && <p className="text-emerald-700 text-center" style={{ fontSize: 11, marginTop: 8 }}>Você já abriu esse contato</p>}
                 </div>
-
-                {v.descricao && <p className="mt-3 text-[12px] opacity-70 bg-zinc-50 p-3 rounded-xl">{v.descricao}</p>}
               </div>
-            )
+            );
           })
         )}
       </div>
+
+      {toast && <div className="fixed left-1/2 text-white bg-slate-900 rounded-full shadow-xl font-semibold" style={{ bottom: 96, transform: "translateX(-50%)", padding: "12px 16px", fontSize: 13, zIndex: 110, whiteSpace: "nowrap" }}>{toast}</div>}
     </div>
-  )
+  );
 }

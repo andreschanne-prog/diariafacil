@@ -1,85 +1,158 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { Search, Megaphone, HandCoins, ArrowRight, Check } from "lucide-react";
 
 export default function Welcome({ onEntrar }) {
   const [step, setStep] = useState(0);
+  const [direcao, setDirecao] = useState(1); // 1 = avançando, -1 = voltando
 
   const steps = [
     {
-      icon: "/icon.jpeg",
-      title: "Bem-vindo ao Diárias Fácil",
-      desc: "Aqui você encontra diárias perto de você, e também pode contratar diáristas para te auxiliar nas suas tarefas",
+      icon: Search,
+      cor: "bg-slate-900 text-white",
+      badge: "Para quem contrata",
+      title: "Encontre uma diarista de confiança perto de você",
+      desc: "Compare perfis, avaliações e preços. Contrate em poucos minutos, sem burocracia e sem mensalidade.",
+      bullets: ["Perfis verificados", "Avaliações reais", "Contato direto"],
       cta: "Como funciona?"
     },
     {
-      icon: "/icon.jpeg",
-      title: "Precisa de diarista?",
-      desc: "Crie um anúncio ofereçendo vagas pra diáristas se candidatarem a vaga. você escolhe quem deseja depois de analizar o perfil de cada candidato.",
-      cta: "E pra quem quer trabalhar?"
+      icon: Megaphone,
+      cor: "bg-emerald-600 text-white",
+      badge: "Para quem contrata",
+      title: "Precisa de uma diarista? Publique sua vaga",
+      desc: "Crie um anúncio em menos de 1 minuto. Receba candidaturas, analise o perfil de cada profissional e escolha quem você quiser.",
+      bullets: ["Anúncio gratuito", "Você escolhe quem contratar", "Sem intermediários"],
+      cta: "E para quem quer trabalhar?"
     },
     {
-      icon: "/icon.jpeg",
-      title: "Precisa de umas diárias pra salvar o orçamento no fim do mês?",
-      desc: "Veja todas as vagas da sua cidade. Se interessou? clica e se candidate, se for escolhido pra vaga logo aparecerá o contato do anunciante.",
+      icon: HandCoins,
+      cor: "bg-amber-500 text-white",
+      badge: "Para diaristas",
+      title: "Ganhe uma renda extra com diárias",
+      desc: "Veja todas as vagas da sua cidade. Gostou de uma? Candidate-se. Se for selecionada, o contato do contratante aparece na hora para você combinar.",
+      bullets: ["Vagas da sua cidade", "Candidatura em 1 clique", "Pagamento direto com o cliente"],
       cta: "Começar agora"
     }
   ];
 
   const current = steps[step];
+  const Icon = current.icon;
+
+  const avancar = useCallback(() => {
+    if (step < steps.length - 1) {
+      setDirecao(1);
+      setStep(s => s + 1);
+    } else {
+      onEntrar();
+    }
+  }, [step, onEntrar, steps.length]);
+
+  const voltar = () => {
+    if (step > 0) {
+      setDirecao(-1);
+      setStep(s => s - 1);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-between px-6 py-10 max-w-[440px] mx-auto">
-      {/* Logo topo */}
-      <div className="w-full flex justify-center pt-4">
-        <img src="/icon.jpeg" alt="logo" className="w-12 h-12 rounded-2xl shadow-lg" />
+    <div className="min-h-screen bg-white flex flex-col max-w- mx-auto px-6 py-6 sm:py-8 relative overflow-hidden">
+      {/* Header - Bigtech style */}
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <img src="/icon.jpeg" alt="Diárias Fácil" className="w-9 h-9 rounded-xl object-cover shadow-sm" />
+          <span className="font-bold tracking-tight text- text-slate-900">Diárias Fácil</span>
+        </div>
+        {step < steps.length - 1 && (
+          <button
+            onClick={onEntrar}
+            className="text- font-semibold text-slate-500 hover:text-slate-900 transition px-2 py-1"
+          >
+            Pular
+          </button>
+        )}
+      </header>
+
+      {/* Barra de progresso - igual 【entity-Duolingo¦canonical_name=Duolingo】 / 【entity-Airbnb¦canonical_name=Airbnb】 */}
+      <div className="flex gap-1.5 mt-6" role="progressbar" aria-valuenow={step + 1} aria-valuemin={1} aria-valuemax={3} aria-label={`Passo ${step + 1} de 3`}>
+        {steps.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => { setDirecao(i > step ? 1 : -1); setStep(i); }}
+            aria-label={`Ir para passo ${i + 1}`}
+            className={`h-1.5 rounded-full flex-1 transition-all duration-300 ${
+              i <= step ? "bg-slate-900" : "bg-slate-100 hover:bg-slate-200"
+            }`}
+          />
+        ))}
       </div>
 
-      {/* Conteúdo do step */}
-      <div className="flex-1 flex flex-col items-center justify-center text-center mt-10">
-        {current.icon.startsWith("/") ? (
-          <img src={current.icon} className="w-24 h-24 rounded-3xl shadow-xl mb-8" />
-        ) : (
-          <div className="w-24 h-24 bg-slate-50 rounded-3xl flex items-center justify-center text-4xl mb-8">
-            {current.icon}
-          </div>
-        )}
+      {/* Conteúdo */}
+      <main key={step} className="flex-1 flex flex-col justify-center py-8 animate-[fadeSlideIn_0.35s_ease-out]">
+        {/* Ícone do step */}
+        <div className={`w- h- rounded- flex items-center justify-center shadow-lg ${current.cor}`}>
+          <Icon className="w-8 h-8" strokeWidth={1.8} />
+        </div>
 
-        <h1 className="text-[28px] font-bold tracking-tight leading-[1.1] text-slate-900">
+        <span className="inline-flex w-fit mt-6 px-2.5 py-1 rounded-full bg-slate-100 text- font-bold tracking-wide uppercase text-slate-600">
+          {current.badge}
+        </span>
+
+        <h1 className="text- sm:text- font-bold tracking-[-0.02em] leading-[1.15] text-slate-900 mt-3">
           {current.title}
         </h1>
-        <p className="text-[15px] text-slate-500 mt-4 leading-relaxed max-w-[320px]">
+
+        <p className="text- text-slate-500 mt-3 leading-[1.6]">
           {current.desc}
         </p>
 
-        {/* Dots */}
-        <div className="flex gap-2 mt-8">
-          {steps.map((_, i) => (
-            <div key={i} className={`h-2 rounded-full transition-all ${i === step ? 'w-6 bg-slate-900' : 'w-2 bg-slate-200'}`} />
+        {/* Bullets - prova de valor, igual bigtech */}
+        <ul className="mt-6 space-y-2.5">
+          {current.bullets.map(b => (
+            <li key={b} className="flex items-center gap-2.5 text- text-slate-700">
+              <span className="w-5 h-5 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                <Check className="w-3 h-3 text-emerald-600" strokeWidth={3} />
+              </span>
+              {b}
+            </li>
           ))}
-        </div>
-      </div>
+        </ul>
+      </main>
 
-      {/* Botões */}
-      <div className="w-full space-y-3 pb-6">
-        <button
-          onClick={() => {
-            if (step < 2) setStep(step + 1);
-            else onEntrar();
-          }}
-          className="w-full h-12 bg-slate-900 text-white rounded-full font-medium text-[15px] hover:bg-black transition"
-        >
-          {current.cta}
-        </button>
-
-        {step < 2 ? (
-          <button onClick={onEntrar} className="w-full h-12 text-slate-500 text-[14px]">
-            Pular introdução
+      {/* Footer */}
+      <footer className="space-y-3 pb-2">
+        <div className="flex gap-3">
+          {step > 0 && (
+            <button
+              onClick={voltar}
+              className="h-12 px-5 rounded-full border border-slate-200 text- font-medium text-slate-700 hover:bg-slate-50 transition shrink-0"
+            >
+              Voltar
+            </button>
+          )}
+          <button
+            onClick={avancar}
+            className="flex-1 h-12 bg-slate-900 text-white rounded-full font-semibold text- hover:bg-black active:scale-[0.98] transition flex items-center justify-center gap-2"
+          >
+            {current.cta}
+            <ArrowRight className="w-4 h-4" />
           </button>
-        ) : (
-          <p className="text-center text-[11px] text-slate-400">
-            Grátis • Sem mensalidade • seguro
-          </p>
-        )}
-      </div>
+        </div>
+
+        <p className="text-center text- text-slate-400">
+          {step === steps.length - 1 ? (
+            <>Ao continuar, você concorda com nossos <span className="underline font-medium text-slate-600">Termos</span> e <span className="underline font-medium text-slate-600">Privacidade</span></>
+          ) : (
+            <>Grátis para usar • Sem mensalidade • Sem compromisso</>
+          )}
+        </p>
+      </footer>
+
+      <style>{`
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateX(${direcao * 12}px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
     </div>
   );
 }

@@ -13,7 +13,7 @@ export default function Termos({ onVoltar, onAceitar }) {
       <div className="mt-6">
         <h1 className="text-[22px] font-bold tracking-tight text-slate-900">Termos de Uso</h1>
         <p className="text-[12px] text-slate-500 mt-1">Diárias Fácil • diariasfacil.com.br</p>
-        <p className="text-[11px] text-slate-400 mt-1">Última atualização: 13 de novembro de 2025 • Sinop - MT</p>
+        <p className="text-[11px] text-slate-400 mt-1">Última atualização: 17 de novembro de 2026 • Sinop - MT</p>
       </div>
 
       <div className="mt-8 space-y-6 text-[13px] leading-relaxed text-slate-700">

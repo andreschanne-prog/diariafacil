@@ -1,413 +1,175 @@
-import { useState, useEffect } from "react"
-import { auth, db } from "./firebase.js"
-import { onAuthStateChanged } from "firebase/auth"
-import { doc, getDoc, setDoc, collection, onSnapshot, orderBy, query, where, getDocs, updateDoc } from "firebase/firestore"
-import { getMessaging, getToken, onMessage } from "firebase/messaging"
+import { useState, useMemo, useCallback } from "react";
+import { auth } from "./firebase.js";
 
-import Header from "./components/Header"
-import Feed from "./pages/Feed"
-import CriarVaga from "./pages/CriarVaga"
-import Perfil from "./pages/Perfil"
-import Contatos from "./pages/Contatos"
-import Cadastro from "./pages/Cadastro"
-import EditarPerfil from "./pages/EditarPerfil"
-import Login from "./pages/Login"
-import RecuperarSenha from "./components/RecuperarSenha"
-import MinhasVagas from "./pages/MinhasVagas"
-import VagasAceitas from "./pages/VagasAceitas"
-import PerfilVisitante from "./pages/PerfilVisitante"
-import Admin from "./pages/Admin"
-import Termos from "./pages/termos"
-import Privacidade from "./pages/privacidade"
-import CriarAnuncio from "./pages/CriarAnuncio"
-import Welcome from "./components/Welcome"
-import DeletarConta from "./components/DeletarConta"
-import ModalAvisoFlutuante from "./components/ModalAvisoFlutuante"
+import Header from "./components/Header";
+import Feed from "./pages/Feed";
+import CriarVaga from "./pages/CriarVaga";
+import Perfil from "./pages/Perfil";
+import Contatos from "./pages/Contatos";
+import Cadastro from "./pages/Cadastro";
+import EditarPerfil from "./pages/EditarPerfil";
+import Login from "./pages/Login";
+import RecuperarSenha from "./components/RecuperarSenha";
+import MinhasVagas from "./pages/MinhasVagas";
+import VagasAceitas from "./pages/VagasAceitas";
+import PerfilVisitante from "./pages/PerfilVisitante";
+import Admin from "./pages/Admin";
+import Termos from "./pages/termos";
+import Privacidade from "./pages/privacidade";
+import CriarAnuncio from "./pages/CriarAnuncio";
+import Welcome from "./components/Welcome";
+import DeletarConta from "./components/DeletarConta";
+import ModalAvisoFlutuante from "./components/ModalAvisoFlutuante";
+import BottomNav from "./components/BottomNav";
+import AppFooter from "./components/AppFooter";
+
+import { useAuth } from "./hooks/useAuth";
+import { useFeed } from "./hooks/useFeed";
+import { useAdmin } from "./hooks/useAdmin";
+import { useNotifications } from "./hooks/useNotifications";
+
+const WHATSAPP_SUPORTE = import.meta.env.VITE_WHATSAPP_SUPORTE || "5566992576552";
+
+// === TRAVA DE ADMIN POR E-MAIL - COLOCA SEU E-MAIL AQUI ===
+const EMAILS_ADMIN = ["a06696632497@gmail.com"]; // <-- TROCA PELO SEU E-MAIL DE LOGIN
 
 export default function App() {
-  const [tela, setTela] = useState("feed")
-  const [telaAnterior, setTelaAnterior] = useState("feed")
-  const [logado, setLogado] = useState(false)
-  const [carregandoAuth, setCarregandoAuth] = useState(true)
-  const [precisaCompletarCadastro, setPrecisaCompletarCadastro] = useState(false)
-  const [mostrarCadastro, setMostrarCadastro] = useState(false)
-  const [mostrarRecuperar, setMostrarRecuperar] = useState(false)
-  const [usuario, setUsuario] = useState(null)
-  const [vagas, setVagas] = useState([])
-  const [anuncios, setAnuncios] = useState([])
-  const [anunciosBrutos, setAnunciosBrutos] = useState([])
-  const [visitanteId, setVisitanteId] = useState(null)
-  const [visitanteData, setVisitanteData] = useState(null)
-  const [candidatoParaSalvar, setCandidatoParaSalvar] = useState(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [termosAceito, setTermosAceito] = useState(false)
-  const [privacidadeAceita, setPrivacidadeAceita] = useState(false)
-  const [anuncioEditando, setAnuncioEditando] = useState(null)
-  const [notificacaoAviso, setNotificacaoAviso] = useState(null)
+  const { usuario, logado, carregando: carregandoAuth, atualizarUsuario, sair } = useAuth();
+  const isAdminHook = useAdmin(usuario);
 
-  const [showWelcome, setShowWelcome] = useState(() => {
-    return !localStorage.getItem("jaViuWelcome_diariafacil");
-  })
+  // AGORA TEM 4 FORMAS - se qualquer uma for true, aparece
+  const isAdmin =
+    isAdminHook === true ||
+    usuario?.isAdmin === true ||
+    usuario?.role === "admin" ||
+    EMAILS_ADMIN.includes((usuario?.email || "").toLowerCase());
 
-  // ===== CORRIGIDO - ANTI LOOP INFINITO =====
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      try {
-        if(user){
-          const ref = doc(db, "usuarios", user.uid)
-          const snap = await getDoc(ref)
-          if(snap.exists()){
-            const dados = snap.data()
-            setUsuario({ ...dados, email: user.email, foto: dados.foto || user.photoURL || "", uid: user.uid })
-            setPrecisaCompletarCadastro(false)
-            localStorage.setItem("feed_cidade_diariafacil", dados.feedCidade || dados.cidade || "Sinop")
-            localStorage.setItem("feed_estado_diariafacil", dados.feedEstado || dados.estado || "MT")
-          } else {
-            // USUÁRIO NOVO DO GOOGLE - CRIA AUTOMÁTICO AQUI E VAI DIRETO PRO FEED
-            const novoUsuario = {
-              nome: user.displayName || "Cliente",
-              email: user.email,
-              contato: "",
-              idade: null,
-              cidade: "Sinop",
-              feedCidade: "Sinop",
-              feedEstado: "MT",
-              estado: "MT",
-              foto: user.photoURL || "",
-              termosAceitos: true,
-              privacidadeAceita: true,
-              dataAceite: new Date(),
-              criadoEm: new Date(),
-              provedor: "google"
-            }
-            await setDoc(ref, novoUsuario) // cria no banco na hora
-            setUsuario({ ...novoUsuario, uid: user.uid })
-            setPrecisaCompletarCadastro(false) // NUNCA manda pra cadastro
-            localStorage.setItem("feed_cidade_diariafacil", "Sinop")
-            localStorage.setItem("feed_estado_diariafacil", "MT")
-          }
-          setLogado(true)
-          setMostrarCadastro(false)
-          setMostrarRecuperar(false)
-        } else {
-          setLogado(false)
-          setUsuario(null)
-          setIsAdmin(false)
-        }
-      } catch (e) {
-        console.log("Erro auth:", e)
-        if(user){
-          // Em caso de erro, NÃO manda pro cadastro - deixa entrar
-          setUsuario({ nome: user.displayName || "", email: user.email, foto: user.photoURL || "", uid: user.uid })
-          setPrecisaCompletarCadastro(false)
-          setLogado(true)
-        }
-      } finally {
-        setCarregandoAuth(false)
-      }
-    })
-    return () => unsub()
-  }, [])
+  const { aviso, setAviso } = useNotifications(usuario);
 
-  useEffect(() => {
-    if (!logado || !usuario?.uid) return;
-    if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) return;
+  const [tela, setTela] = useState("feed");
+  const [historico, setHistorico] = useState(["feed"]);
+  const [mostrarCadastro, setMostrarCadastro] = useState(false);
+  const [mostrarRecuperar, setMostrarRecuperar] = useState(false);
+  const [visitante, setVisitante] = useState({ id: null, data: null });
+  const [candidatoParaSalvar, setCandidatoParaSalvar] = useState(null);
+  const [termosAceito, setTermosAceito] = useState(false);
+  const [privacidadeAceita, setPrivacidadeAceita] = useState(false);
+  const [anuncioEditando, setAnuncioEditando] = useState(null);
+  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem("jaViuWelcome_diariafacil"));
 
-    let unsubscribeOnMessage = null;
+  const cidadeFiltro = usuario?.feedCidade || usuario?.cidade || null;
+  const estadoFiltro = usuario?.feedEstado || usuario?.estado || null;
 
-    const ativarNotificacoes = async () => {
-      try {
-        const permissao = await Notification.requestPermission();
-        if (permissao !== "granted") return;
+  const { vagas, feedVagas, anuncios } = useFeed(logado, cidadeFiltro, estadoFiltro);
 
-        const registroSW = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-        const messaging = getMessaging();
+  const navegar = useCallback((novaTela) => {
+    setHistorico(h => [...h, novaTela]);
+    setTela(novaTela);
+  }, []);
 
-        const tokenAtual = await getToken(messaging, {
-          vapidKey: "SUA_CHAVE_VAPID_AQUI",
-          serviceWorkerRegistration: registroSW
-        });
-
-        if (tokenAtual && tokenAtual !== usuario.fcmToken) {
-          const userRef = doc(db, "usuarios", usuario.uid);
-          await updateDoc(userRef, {
-            fcmToken: tokenAtual,
-            notificacoesAtivas: true
-          }).catch(() => {});
-          setUsuario(prev => prev ? { ...prev, fcmToken: tokenAtual } : prev);
-        }
-
-        unsubscribeOnMessage = onMessage(messaging, (payload) => {
-          const titulo = payload.notification?.title || "Nova notificação";
-          const corpo = payload.notification?.body || "";
-          setNotificacaoAviso({ titulo, corpo });
-          setTimeout(() => setNotificacaoAviso(null), 5000);
-        });
-      } catch (err) {
-        console.log("Aviso push:", err);
-      }
-    };
-
-    ativarNotificacoes();
-
-    return () => {
-      if (unsubscribeOnMessage) unsubscribeOnMessage();
-    };
-  }, [logado, usuario?.uid]);
-
-  useEffect(() => {
-    const checarAdmin = async () => {
-      if(!usuario?.uid && !usuario?.email) return
-      try {
-        const emailAtual = (usuario.email || auth.currentUser?.email || "").toLowerCase().trim();
-        const emailsADM = ["andreschanne@gmail.com", "diariafacil@gmail.com"]; 
-        if(emailsADM.includes(emailAtual)){ setIsAdmin(true); return; }
-        const refUid = doc(db, "admins", usuario.uid)
-        const snapUid = await getDoc(refUid)
-        if(snapUid.exists()){ setIsAdmin(true); return; }
-        const refEmail = doc(db, "admins", emailAtual)
-        const snapEmail = await getDoc(refEmail)
-        if(snapEmail.exists()){ setIsAdmin(true); return; }
-        const q = query(collection(db, "admins"), where("email", "==", emailAtual))
-        const snapQuery = await getDocs(q)
-        if(!snapQuery.empty){ setIsAdmin(true); return; }
-        setIsAdmin(false);
-      } catch(e){ console.log("Erro checar admin:", e); }
-    }
-    checarAdmin()
-  }, [usuario])
-
-  useEffect(() => {
-    if (!logado) return;
-    const q = query(collection(db, "vagas"), orderBy("criadoEm", "desc"));
-    const unsub = onSnapshot(q, (snapshot) => {
-      setVagas(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+  const voltar = useCallback(() => {
+    setHistorico(h => {
+      if (h.length <= 1) return h;
+      const novo = h.slice(0, -1);
+      setTela(novo[novo.length - 1]);
+      return novo;
     });
-    return () => unsub();
-  }, [logado]);
+  }, []);
 
-  useEffect(() => {
-    if (!logado) return;
-    const qAnu = query(collection(db, "anuncios"), orderBy("criadoEm", "desc"));
-    const unsub = onSnapshot(qAnu, (snap) => {
-      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setAnunciosBrutos(lista)
-    })
-    return () => unsub()
-  }, [logado])
-
-  const cidadeFiltro = usuario?.feedCidade || usuario?.cidadeDesejada || localStorage.getItem("feed_cidade_diariafacil") || "Sinop";
-  const estadoFiltro = usuario?.feedEstado || usuario?.estadoDesejado || localStorage.getItem("feed_estado_diariafacil") || "MT";
-
-  useEffect(() => {
-    const cidadeAtual = cidadeFiltro.toLowerCase().trim()
-    const estadoAtual = estadoFiltro.toLowerCase().trim()
-    
-    let filtrados = anunciosBrutos.filter(a => {
-      if (a.ativo === false) return false
-      if (!a.alcance) return true
-      if (a.alcance === "brasil") return true
-      if (a.alcance === "pais") {
-        const p = (a.pais || "Brasil").toLowerCase()
-        if (p.includes("todos")) return true
-        return p === "brasil"
-      }
-      if (a.alcance === "estado") return (a.estadoLower || (a.estado || "").toLowerCase()) === estadoAtual
-      if (a.alcance === "cidade") return (a.cidadeLower || (a.cidade || "").toLowerCase()) === cidadeAtual
-      return true
-    })
-
-    filtrados = filtrados.sort((a, b) => (a.impressoes || 0) - (b.impressoes || 0)).map(a => ({ a, r: Math.random() })).sort((x, y) => {
-      const diff = (x.a.impressoes || 0) - (y.a.impressoes || 0)
-      if (Math.abs(diff) > 50) return diff
-      return x.r - y.r
-    }).map(x => x.a)
-    
-    setAnuncios(filtrados)
-  }, [anunciosBrutos, cidadeFiltro, estadoFiltro])
-
-  const abrirPerfilVisitante = (vagaOuUsuario) => {
-    if(!vagaOuUsuario) return
-    setTelaAnterior(tela)
-    if(typeof vagaOuUsuario === 'string'){
-      setVisitanteId(vagaOuUsuario)
-      setVisitanteData(null)
+  const abrirPerfilVisitante = useCallback((vagaOuUsuario) => {
+    if (!vagaOuUsuario) return;
+    if (typeof vagaOuUsuario === "string") {
+      setVisitante({ id: vagaOuUsuario, data: null });
     } else {
-      setVisitanteId(vagaOuUsuario.uid || vagaOuUsuario.anuncianteId || vagaOuUsuario.id)
-      setVisitanteData({
-        uid: vagaOuUsuario.uid || vagaOuUsuario.anuncianteId || vagaOuUsuario.id,
-        nome: vagaOuUsuario.nome || vagaOuUsuario.anuncianteNome,
-        foto: vagaOuUsuario.foto || vagaOuUsuario.anuncianteFoto,
-        cidade: vagaOuUsuario.cidade,
-        estado: vagaOuUsuario.estado,
-        email: vagaOuUsuario.email,
-        sobre: vagaOuUsuario.sobre || vagaOuUsuario.anuncianteSobre
-      })
+      setVisitante({
+        id: vagaOuUsuario.uid || vagaOuUsuario.anuncianteId || vagaOuUsuario.id,
+        data: {
+          uid: vagaOuUsuario.uid || vagaOuUsuario.anuncianteId || vagaOuUsuario.id,
+          nome: vagaOuUsuario.nome || vagaOuUsuario.anuncianteNome,
+          foto: vagaOuUsuario.foto || vagaOuUsuario.anuncianteFoto,
+          cidade: vagaOuUsuario.cidade,
+          estado: vagaOuUsuario.estado,
+          email: vagaOuUsuario.email,
+          sobre: vagaOuUsuario.sobre || vagaOuUsuario.anuncianteSobre,
+        }
+      });
     }
-    setTela("visitante")
-  }
+    navegar("visitante");
+  }, [navegar]);
 
-  const abrirContatos = (candidato = null) => {
-    setTelaAnterior(tela)
-    if (candidato) setCandidatoParaSalvar(candidato)
-    setTela("contatos")
-  }
+  const abrirContatos = useCallback((candidato = null) => {
+    if (candidato) setCandidatoParaSalvar(candidato);
+    navegar("contatos");
+  }, [navegar]);
 
-  const irParaTermos = (tipo) => { setTelaAnterior(tela); setTela(tipo) }
+  const uidAtual = usuario?.uid || usuario?.id;
+  const emailAtual = (usuario?.email || "").toLowerCase();
 
-  if(carregandoAuth) return <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-[13px] text-slate-500">Carregando...</div>
+  const minhasVagas = useMemo(() => vagas.filter(v => {
+    if (!uidAtual) return false;
+    return (v.anuncianteId || v.uid) === uidAtual || (v.anuncianteEmail || v.email || "").toLowerCase() === emailAtual;
+  }), [vagas, uidAtual, emailAtual]);
 
-  if(showWelcome){
-    return <Welcome onEntrar={() => {
-      localStorage.setItem("jaViuWelcome_diariafacil", "true")
-      setShowWelcome(false)
-    }} />
-  }
+  const aceitasCount = useMemo(() => vagas.filter(v =>
+    v.candidatos?.some(c => (c.uid === uidAtual || (c.email && c.email.toLowerCase() === emailAtual)) && c.aprovado)
+  ).length, [vagas, uidAtual, emailAtual]);
 
-  if (tela === "termos") { return <Termos onVoltar={() => setTela(telaAnterior)} onAceitar={() => { setTermosAceito(true); setTela(telaAnterior); }} /> }
-  if (tela === "privacidade") { return <Privacidade onVoltar={() => setTela(telaAnterior)} onAceitar={() => { setPrivacidadeAceita(true); setTela(telaAnterior); }} /> }
-  
-  if (!logado) {
-    if(mostrarCadastro){ 
-      return <Cadastro onEntrar={(dados)=>{ setUsuario({...usuario, ...dados}); setMostrarCadastro(false); setLogado(true); }} onVoltar={()=>setMostrarCadastro(false)} usuarioInicial={null} onVerTermos={()=>irParaTermos("termos")} onVerPrivacidade={()=>irParaTermos("privacidade")} termosJaAceito={termosAceito} privacidadeJaAceita={privacidadeAceita} /> 
-    }
-    if(mostrarRecuperar){ 
-      return <RecuperarSenha onVoltar={()=>setMostrarRecuperar(false)} /> 
-    }
-    return <Login onLogin={()=>{}} onCadastro={()=>setMostrarCadastro(true)} onEsqueceuSenha={()=>setMostrarRecuperar(true)} />
-  }
-  
-  // Se por acaso ainda cair aqui, não vai mais travar em loop
-  if(precisaCompletarCadastro){ 
-    return <Cadastro 
-      onEntrar={(dados)=>{ 
-        setUsuario(prev => ({...prev, ...dados})); 
-        setPrecisaCompletarCadastro(false); 
-        setLogado(true);
-        setTela("feed") 
-      }} 
-      usuarioInicial={usuario} 
-      onVerTermos={()=>irParaTermos("termos")} 
-      onVerPrivacidade={()=>irParaTermos("privacidade")} 
-      termosJaAceito={termosAceito} 
-      privacidadeJaAceita={privacidadeAceita} 
-    /> 
-  }
-
-  const feedVagas = vagas.filter(v => {
-    if(v.fechada || v.status === "preenchida") return false;
-    if(cidadeFiltro && v.cidade){
-      const cVaga = v.cidade.toLowerCase().trim();
-      const cFiltro = cidadeFiltro.toLowerCase().trim();
-      if(!cVaga.includes(cFiltro) && !cFiltro.includes(cVaga)) return false;
-    }
-    return true;
-  });
-
-  const uidAtual = auth.currentUser?.uid || usuario?.uid;
-  const emailAtual = (auth.currentUser?.email || usuario?.email || "").toLowerCase();
-  const minhasVagasFiltradas = vagas.filter(v => {
-    if(!uidAtual) return false;
-    const donoUid = v.anuncianteId || v.uid || "";
-    const donoEmail = (v.anuncianteEmail || v.email || "").toLowerCase();
-    return donoUid === uidAtual || donoEmail === emailAtual;
-  });
-
-  const aceitasCount = vagas.filter(v => v.candidatos?.some(c => (c.uid === uidAtual || (c.email && c.email.toLowerCase() === emailAtual)) && c.aprovado)).length;
-
-  const navItem = (id, label, badge) => (
-    <button onClick={()=>setTela(id)} className={`relative flex flex-col items-center justify-center px-4 py-1.5 rounded-full transition-all text-[11px] ${tela===id ? 'bg-slate-900 text-white font-medium' : 'text-slate-500 font-normal hover:text-slate-700'}`}>
-      {label}
-      {badge > 0 && <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[9px] font-bold min-w-[16px] h-[16px] flex items-center justify-center rounded-full px-1">{badge}</span>}
-    </button>
-  )
-
-  const Footer = () => (
-    <div className="max-w-[640px] mx-auto mt-10 mb-28 px-4">
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <img src="/icon.jpeg" className="w-6 h-6 rounded-full object-cover" />
-          <p className="text-[12px] font-semibold">diariasfacil • Brasil</p>
-          <span className="text-[10px] text-slate-400">© 2026</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={()=>irParaTermos("termos")} className="text-[11px] px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full hover:bg-slate-100">Termos de Uso</button>
-          <button onClick={()=>irParaTermos("privacidade")} className="text-[11px] px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full hover:bg-slate-100">Privacidade - LGPD</button>
-          <button onClick={()=>setShowWelcome(true)} className="text-[11px] px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full hover:bg-slate-100">Como funciona?</button>
-        </div>
-        <p className="text-[10px] text-slate-400 leading-snug">Ideal para: Donas de casa - Empreendedores - Prestadores de serviço - Diaristas</p>
+  if (carregandoAuth) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-4 mx-auto space-y-4 pt-6" style={{ maxWidth: 640 }}>
+        <div className="h-12 bg-white rounded-2xl animate-pulse" />
+        <div className="h-40 bg-white rounded-2xl animate-pulse" />
+        <div className="h-40 bg-white rounded-2xl animate-pulse" />
       </div>
-    </div>
-  )
+    );
+  }
+
+  if (showWelcome) {
+    return <Welcome onEntrar={() => { localStorage.setItem("jaViuWelcome_diariafacil", "true"); setShowWelcome(false); }} />;
+  }
+
+  if (tela === "termos") return <Termos onVoltar={voltar} onAceitar={() => { setTermosAceito(true); voltar(); }} />;
+  if (tela === "privacidade") return <Privacidade onVoltar={voltar} onAceitar={() => { setPrivacidadeAceita(true); voltar(); }} />;
+
+  if (!logado) {
+    if (mostrarCadastro) return <Cadastro onEntrar={() => setMostrarCadastro(false)} onVoltar={() => setMostrarCadastro(false)} onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} termosJaAceito={termosAceito} privacidadeJaAceita={privacidadeAceita} />;
+    if (mostrarRecuperar) return <RecuperarSenha onVoltar={() => setMostrarRecuperar(false)} />;
+    return <Login onLogin={() => {}} onCadastro={() => setMostrarCadastro(true)} onEsqueceuSenha={() => setMostrarRecuperar(true)} />;
+  }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900" translate="no">
-      {notificacaoAviso && (
-        <div onClick={() => setNotificacaoAviso(null)} className="fixed top-4 left-4 right-4 max-w-[420px] mx-auto bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg z-[999] cursor-pointer flex flex-col gap-0.5 border border-slate-700">
-          <p className="text-[12px] font-semibold">{notificacaoAviso.titulo}</p>
-          {notificacaoAviso.corpo && <p className="text-[11px] text-slate-300">{notificacaoAviso.corpo}</p>}
-        </div>
-      )}
-      <Header onPostar={()=>setTela("criar")} usuario={usuario} isAdmin={isAdmin} onAdmin={()=>setTela("admin")} />
-      
-      {tela === "feed" && (
-        <>
-          <Feed vagas={feedVagas} anuncios={anuncios} cidadeFiltro={cidadeFiltro} estadoFiltro={estadoFiltro} onVerPerfil={abrirPerfilVisitante} onAbrirContatos={() => abrirContatos()} />
-          <Footer />
-        </>
+    <div className="min-h-screen bg-slate-50 text-slate-900" translate="no">
+      {aviso && (
+        <button onClick={() => setAviso(null)} className="fixed top-4 left-4 right-4 mx-auto bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg text-left border border-slate-700" style={{ maxWidth: 640, zIndex: 999 }}>
+          <p className="font-semibold" style={{ fontSize: 13 }}>{aviso.titulo}</p>
+          {aviso.corpo && <p className="text-slate-300" style={{ fontSize: 12 }}>{aviso.corpo}</p>}
+        </button>
       )}
 
-      {tela === "criar" && <CriarVaga onVoltar={()=>setTela("feed")} onSucesso={()=>setTela("feed")} usuario={usuario} />}
-      
-      {tela === "minhas" && (
-        <>
-          <MinhasVagas vagas={minhasVagasFiltradas} usuario={usuario} onVerPerfil={abrirPerfilVisitante} onSalvarContato={(candidato) => abrirContatos(candidato)} />
-          <Footer />
-        </>
-      )}
+      <Header usuario={usuario} isAdmin={isAdmin} onAdmin={() => navegar("admin")} onVerPerfil={() => navegar("perfil")} />
 
-      {tela === "aceitas" && <><VagasAceitas vagas={vagas} usuario={usuario} /><Footer /></>}
-      
-      {tela === "contatos" && (
-        <>
-          <Contatos onVoltar={() => setTela("perfil")} onVerPerfil={abrirPerfilVisitante} candidatoParaSalvar={candidatoParaSalvar} onLimparCandidato={() => setCandidatoParaSalvar(null)} />
-          <Footer />
-        </>
-      )}
-
-      {tela === "visitante" && <PerfilVisitante usuarioId={visitanteId} usuarioData={visitanteData} usuarioLogado={usuario} onVoltar={()=>setTela(telaAnterior)} />}
-      {tela === "admin" && <Admin onVoltar={()=>setTela("feed")} onAbrirCriarAnuncio={() => { setAnuncioEditando(null); setTela("criarAnuncio") }} onEditarAnuncio={(anuncio) => { setAnuncioEditando(anuncio); setTela("criarAnuncio") }} onVerPerfil={abrirPerfilVisitante} />}
-      {tela === "criarAnuncio" && <CriarAnuncio anuncioParaEditar={anuncioEditando} onVoltar={()=>setTela("admin")} />}
+      {tela === "feed" && <><Feed vagas={feedVagas} anuncios={anuncios} cidadeFiltro={cidadeFiltro} estadoFiltro={estadoFiltro} onVerPerfil={abrirPerfilVisitante} onAbrirContatos={() => abrirContatos()} /><AppFooter onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} onComoFunciona={() => setShowWelcome(true)} /></>}
+      {tela === "criar" && <CriarVaga onVoltar={() => setTela("feed")} onSucesso={() => setTela("feed")} usuario={usuario} />}
+      {tela === "minhas" && <><MinhasVagas vagas={minhasVagas} usuario={usuario} onVerPerfil={abrirPerfilVisitante} onSalvarContato={abrirContatos} /><AppFooter onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} onComoFunciona={() => setShowWelcome(true)} /></>}
+      {tela === "aceitas" && <><VagasAceitas vagas={vagas} usuario={usuario} /><AppFooter onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} onComoFunciona={() => setShowWelcome(true)} /></>}
+      {tela === "contatos" && <><Contatos onVoltar={() => setTela("perfil")} onVerPerfil={abrirPerfilVisitante} candidatoParaSalvar={candidatoParaSalvar} onLimparCandidato={() => setCandidatoParaSalvar(null)} /><AppFooter onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} onComoFunciona={() => setShowWelcome(true)} /></>}
+      {tela === "visitante" && <PerfilVisitante usuarioId={visitante.id} usuarioData={visitante.data} usuarioLogado={usuario} onVoltar={voltar} />}
+      {tela === "admin" && <Admin onVoltar={() => setTela("feed")} onAbrirCriarAnuncio={() => { setAnuncioEditando(null); navegar("criarAnuncio"); }} onEditarAnuncio={(a) => { setAnuncioEditando(a); navegar("criarAnuncio"); }} onVerPerfil={abrirPerfilVisitante} />}
+      {tela === "criarAnuncio" && <CriarAnuncio anuncioParaEditar={anuncioEditando} onVoltar={() => setTela("admin")} />}
       {tela === "deletar" && <DeletarConta />}
-
-      {tela === "perfil" && (
-        <>
-          <Perfil vagas={vagas} modo="perfil" usuario={usuario} onSair={()=>{ auth.signOut(); setLogado(false) }} onEditar={()=>setTela("editar")} onContatos={()=>abrirContatos()} onDeletar={()=>setTela("deletar")} onSuporte={()=>{ setTelaAnterior("perfil"); setTela("suporte"); }} onAnuncio={()=>setTela("anuncio")} onSalvarCidade={(novosDados) => { setUsuario(prev => ({ ...prev, ...novosDados })) }} />
-          <Footer />
-        </>
-      )}
-
-      {tela === "editar" && <EditarPerfil usuario={usuario} onVoltar={()=>setTela("perfil")} onSalvar={(d)=>{ setUsuario({...usuario, ...d}); setTela("perfil") }} />}
-      
+      {tela === "perfil" && <><Perfil usuario={usuario} onSair={sair} onEditar={() => navegar("editar")} onContatos={() => abrirContatos()} onDeletar={() => navegar("deletar")} onSuporte={() => navegar("suporte")} onSalvarCidade={atualizarUsuario} /><AppFooter onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} onComoFunciona={() => setShowWelcome(true)} /></>}
+      {tela === "editar" && <EditarPerfil usuario={usuario} onVoltar={() => setTela("perfil")} onSalvar={(d) => { atualizarUsuario(d); setTela("perfil"); }} />}
       {tela === "suporte" && (
-        <div className="max-w-[600px] mx-auto min-h-screen bg-white p-6">
-          <button onClick={()=>setTela(telaAnterior)} className="w-9 h-9 border border-slate-200 rounded-full text-[13px]">←</button>
-          <h2 className="text-[18px] font-semibold mt-6">Suporte</h2>
-          <p className="text-[13px] text-slate-500 mt-1">Fale com a gente no suporte</p>
-          <button onClick={()=>window.open("https://wa.me/5566992576552","_blank")} className="mt-6 w-full bg-slate-900 text-white h-11 rounded-full text-[14px] font-medium">Abrir WhatsApp</button>
+        <div className="mx-auto min-h-screen bg-white p-6" style={{ maxWidth: 640 }}>
+          <button onClick={voltar} className="w-9 h-9 border border-slate-200 rounded-full">←</button>
+          <h2 className="font-semibold mt-6" style={{ fontSize: 18 }}>Suporte</h2>
+          <p className="text-slate-500 mt-1" style={{ fontSize: 13 }}>Fale com a gente no WhatsApp</p>
+          <button onClick={() => window.open(`https://wa.me/${WHATSAPP_SUPORTE}`, "_blank")} className="mt-6 w-full bg-slate-900 text-white h-11 rounded-full font-medium" style={{ fontSize: 14 }}>Abrir WhatsApp</button>
         </div>
       )}
 
       {tela !== "admin" && <ModalAvisoFlutuante />}
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-2 py-3 flex justify-center z-50">
-        <div className="flex items-center gap-1 bg-slate-100 rounded-full p-1">
-          {navItem("feed","Início")}
-          {navItem("minhas","Anúncios")}
-          {navItem("aceitas","Notificação",aceitasCount)}
-          {navItem("perfil","Perfil")}
-        </div>
-      </div>
+      <BottomNav tela={tela} onNavegar={navegar} aceitasCount={aceitasCount} />
     </div>
-  )
+  );
 }
