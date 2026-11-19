@@ -1,4 +1,4 @@
-// src/hooks/useCidades.js
+// src/hooks/useCidades.js - VERSÃO FINAL
 import { useState, useEffect } from "react";
 
 export function useCidades(uf) {
@@ -6,25 +6,42 @@ export function useCidades(uf) {
   const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
-    if (!uf) return;
-
-    // 1. Se já buscou esse estado antes, usa do cache e não busca de novo
-    const cache = sessionStorage.getItem(`cidades_${uf}`);
-    if (cache) {
-      setCidades(JSON.parse(cache));
+    if (!uf) {
+      setCidades([]);
       return;
     }
 
+    const ufLimpo = String(uf).toUpperCase().trim();
+    let cancelado = false; // trava 1: se trocar de UF, ignora a resposta antiga
+
+    // 1. Cache - se já buscou, usa e não busca de novo
+    try {
+      const cache = sessionStorage.getItem(`cidades_${ufLimpo}`);
+      if (cache) {
+        const lista = JSON.parse(cache);
+        if (Array.isArray(lista) && lista.length > 0) {
+          setCidades(lista);
+          return;
+        }
+      }
+    } catch {
+      // cache com lixo - ignora e busca de novo
+      sessionStorage.removeItem(`cidades_${ufLimpo}`);
+    }
+
     setCarregando(true);
-    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`)
+    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${ufLimpo}/municipios?orderBy=nome`)
       .then(res => res.json())
       .then(data => {
-        const nomes = data.map(c => c.nome); // só o nome: ["Sinop", "Sorriso", ...]
+        if (cancelado) return;
+        const nomes = (data || []).map(c => c.nome).sort((a, b) => a.localeCompare(b, "pt-BR"));
         setCidades(nomes);
-        sessionStorage.setItem(`cidades_${uf}`, JSON.stringify(nomes));
+        try { sessionStorage.setItem(`cidades_${ufLimpo}`, JSON.stringify(nomes)); } catch {}
       })
-      .catch(() => setCidades([]))
-      .finally(() => setCarregando(false));
+      .catch(() => { if (!cancelado) setCidades([]); })
+      .finally(() => { if (!cancelado) setCarregando(false); });
+
+    return () => { cancelado = true; };
   }, [uf]);
 
   return { cidades, carregando };

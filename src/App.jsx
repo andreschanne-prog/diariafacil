@@ -1,5 +1,5 @@
+// src/App.jsx - CORRIGIDO
 import { useState, useMemo, useCallback } from "react";
-import { auth } from "./firebase.js";
 
 import Header from "./components/Header";
 import Feed from "./pages/Feed";
@@ -29,15 +29,12 @@ import { useAdmin } from "./hooks/useAdmin";
 import { useNotifications } from "./hooks/useNotifications";
 
 const WHATSAPP_SUPORTE = import.meta.env.VITE_WHATSAPP_SUPORTE || "5566992576552";
-
-// === TRAVA DE ADMIN POR E-MAIL - COLOCA SEU E-MAIL AQUI ===
-const EMAILS_ADMIN = ["a06696632497@gmail.com"]; // <-- TROCA PELO SEU E-MAIL DE LOGIN
+const EMAILS_ADMIN = ["a06696632497@gmail.com"];
 
 export default function App() {
   const { usuario, logado, carregando: carregandoAuth, atualizarUsuario, sair } = useAuth();
   const isAdminHook = useAdmin(usuario);
 
-  // AGORA TEM 4 FORMAS - se qualquer uma for true, aparece
   const isAdmin =
     isAdminHook === true ||
     usuario?.isAdmin === true ||
@@ -57,8 +54,10 @@ export default function App() {
   const [anuncioEditando, setAnuncioEditando] = useState(null);
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem("jaViuWelcome_diariafacil"));
 
-  const cidadeFiltro = usuario?.feedCidade || usuario?.cidade || null;
-  const estadoFiltro = usuario?.feedEstado || usuario?.estado || null;
+  // CORREÇÃO 1 - nunca mais null. Se usuário tá sem cidade, cai em Sinop / MT
+  // Antes era: || null -> useFeed fazia where("cidade", "==", null) e retornava 0 vagas
+  const cidadeFiltro = usuario?.feedCidade || usuario?.cidade || "Sinop";
+  const estadoFiltro = usuario?.feedEstado || usuario?.estado || "MT";
 
   const { vagas, feedVagas, anuncios } = useFeed(logado, cidadeFiltro, estadoFiltro);
 
@@ -116,7 +115,7 @@ export default function App() {
 
   if (carregandoAuth) {
     return (
-      <div className="min-h-screen bg-slate-50 p-4 mx-auto space-y-4 pt-6" style={{ maxWidth: 640 }}>
+      <div className="min-h-screen bg-slate-50 mx-auto space-y-4" style={{ maxWidth: 640, padding: 16, paddingTop: 24 }}>
         <div className="h-12 bg-white rounded-2xl animate-pulse" />
         <div className="h-40 bg-white rounded-2xl animate-pulse" />
         <div className="h-40 bg-white rounded-2xl animate-pulse" />
@@ -140,7 +139,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900" translate="no">
       {aviso && (
-        <button onClick={() => setAviso(null)} className="fixed top-4 left-4 right-4 mx-auto bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg text-left border border-slate-700" style={{ maxWidth: 640, zIndex: 999 }}>
+        <button onClick={() => setAviso(null)} className="fixed left-4 right-4 mx-auto bg-slate-900 text-white rounded-2xl shadow-lg text-left border border-slate-700" style={{ top: 16, maxWidth: 640, zIndex: 999, padding: 14 }}>
           <p className="font-semibold" style={{ fontSize: 13 }}>{aviso.titulo}</p>
           {aviso.corpo && <p className="text-slate-300" style={{ fontSize: 12 }}>{aviso.corpo}</p>}
         </button>
@@ -148,7 +147,8 @@ export default function App() {
 
       <Header usuario={usuario} isAdmin={isAdmin} onAdmin={() => navegar("admin")} onVerPerfil={() => navegar("perfil")} />
 
-      {tela === "feed" && <><Feed vagas={feedVagas} anuncios={anuncios} cidadeFiltro={cidadeFiltro} estadoFiltro={estadoFiltro} onVerPerfil={abrirPerfilVisitante} onAbrirContatos={() => abrirContatos()} /><AppFooter onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} onComoFunciona={() => setShowWelcome(true)} /></>}
+      {/* CORREÇÃO 2 - passa usuario pro Feed, senão ele não sabe a cidade de verdade */}
+      {tela === "feed" && <><Feed vagas={feedVagas} anuncios={anuncios} usuario={usuario} cidadeFiltro={cidadeFiltro} estadoFiltro={estadoFiltro} onVerPerfil={abrirPerfilVisitante} onAbrirContatos={() => abrirContatos()} /><AppFooter onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} onComoFunciona={() => setShowWelcome(true)} /></>}
       {tela === "criar" && <CriarVaga onVoltar={() => setTela("feed")} onSucesso={() => setTela("feed")} usuario={usuario} />}
       {tela === "minhas" && <><MinhasVagas vagas={minhasVagas} usuario={usuario} onVerPerfil={abrirPerfilVisitante} onSalvarContato={abrirContatos} /><AppFooter onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} onComoFunciona={() => setShowWelcome(true)} /></>}
       {tela === "aceitas" && <><VagasAceitas vagas={vagas} usuario={usuario} /><AppFooter onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} onComoFunciona={() => setShowWelcome(true)} /></>}
@@ -160,11 +160,11 @@ export default function App() {
       {tela === "perfil" && <><Perfil usuario={usuario} onSair={sair} onEditar={() => navegar("editar")} onContatos={() => abrirContatos()} onDeletar={() => navegar("deletar")} onSuporte={() => navegar("suporte")} onSalvarCidade={atualizarUsuario} /><AppFooter onVerTermos={() => navegar("termos")} onVerPrivacidade={() => navegar("privacidade")} onComoFunciona={() => setShowWelcome(true)} /></>}
       {tela === "editar" && <EditarPerfil usuario={usuario} onVoltar={() => setTela("perfil")} onSalvar={(d) => { atualizarUsuario(d); setTela("perfil"); }} />}
       {tela === "suporte" && (
-        <div className="mx-auto min-h-screen bg-white p-6" style={{ maxWidth: 640 }}>
-          <button onClick={voltar} className="w-9 h-9 border border-slate-200 rounded-full">←</button>
-          <h2 className="font-semibold mt-6" style={{ fontSize: 18 }}>Suporte</h2>
-          <p className="text-slate-500 mt-1" style={{ fontSize: 13 }}>Fale com a gente no WhatsApp</p>
-          <button onClick={() => window.open(`https://wa.me/${WHATSAPP_SUPORTE}`, "_blank")} className="mt-6 w-full bg-slate-900 text-white h-11 rounded-full font-medium" style={{ fontSize: 14 }}>Abrir WhatsApp</button>
+        <div className="mx-auto min-h-screen bg-white" style={{ maxWidth: 640, padding: 24 }}>
+          <button onClick={voltar} className="border border-slate-200 rounded-full" style={{ width: 36, height: 36 }}>←</button>
+          <h2 className="font-semibold" style={{ fontSize: 18, marginTop: 24 }}>Suporte</h2>
+          <p className="text-slate-500" style={{ fontSize: 13, marginTop: 4 }}>Fale com a gente no WhatsApp</p>
+          <button onClick={() => window.open(`https://wa.me/${WHATSAPP_SUPORTE}`, "_blank")} className="mt-6 w-full bg-slate-900 text-white rounded-full font-medium" style={{ height: 44, fontSize: 14 }}>Abrir WhatsApp</button>
         </div>
       )}
 
